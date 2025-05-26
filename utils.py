@@ -213,6 +213,10 @@ def analyze_options(df, option_column='option_info', count_column='count'):
     # 상위 10개 옵션 추출
     top_options = df.sort_values(by=count_column, ascending=False).head(10)
     
+    # 인덱스를 1부터 10까지 재설정
+    top_options = top_options.reset_index(drop=True)
+    top_options.index = top_options.index + 1
+    
     return top_options
 
 def analyze_positive_review_categories(df, review_column):

@@ -630,10 +630,27 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 st.dataframe(top_options)
                 
                 # 상위 10개 옵션 막대 그래프
-                fig = plt.figure(figsize=(10, 6))
-                sns.barplot(x='option_info', y='count', data=top_options)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                # 막대 그래프 생성 (인덱스를 X축 위치로 사용)
+                x_positions = range(len(top_options))
+                bars = ax.bar(x_positions, top_options['count'], color='steelblue')
+                
+                # X축 레이블 설정 (옵션명)
+                ax.set_xticks(x_positions)
+                ax.set_xticklabels(top_options['option_info'], rotation=45, ha='right')
+                
+                # 막대 위에 판매량 표시
+                for i, v in enumerate(top_options['count']):
+                    ax.text(i, v + max(top_options['count']) * 0.01, 
+                           f'{v:,}', ha='center', va='bottom')
+                
+                # Y축 범위 조정 (위쪽 여백 확보)
+                max_val = max(top_options['count'])
+                ax.set_ylim(0, max_val * 1.15)
+                
                 plt.title('상위 10개 옵션 판매량')
-                plt.xticks(rotation=45)
+                plt.ylabel('판매량')
                 plt.tight_layout()
                 st.pyplot(fig)
                 
@@ -904,10 +921,27 @@ else:
                     st.dataframe(top_options)
                     
                     # 상위 10개 옵션 막대 그래프
-                    fig = plt.figure(figsize=(10, 6))
-                    sns.barplot(x='option_info', y='count', data=top_options)
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    
+                    # 막대 그래프 생성 (인덱스를 X축 위치로 사용)
+                    x_positions = range(len(top_options))
+                    bars = ax.bar(x_positions, top_options['count'], color='steelblue')
+                    
+                    # X축 레이블 설정 (옵션명)
+                    ax.set_xticks(x_positions)
+                    ax.set_xticklabels(top_options['option_info'], rotation=45, ha='right')
+                    
+                    # 막대 위에 판매량 표시
+                    for i, v in enumerate(top_options['count']):
+                        ax.text(i, v + max(top_options['count']) * 0.01, 
+                               f'{v:,}', ha='center', va='bottom')
+                    
+                    # Y축 범위 조정 (위쪽 여백 확보)
+                    max_val = max(top_options['count'])
+                    ax.set_ylim(0, max_val * 1.15)
+                    
                     plt.title('상위 10개 옵션 판매량')
-                    plt.xticks(rotation=45)
+                    plt.ylabel('판매량')
                     plt.tight_layout()
                     st.pyplot(fig)
             else:
