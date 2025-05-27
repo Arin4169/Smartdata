@@ -519,18 +519,21 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                             ax.text(width + width*0.02, bar.get_y() + bar.get_height()/2, 
                                     f'{int(width):,}', 
                                     va='center', fontsize=10)
-                        
+                    
                         # x축 범위 조정 (여백 줄이기)
                         if len(top_words) > 0:
                             max_count = max(top_words.values())
-                            plt.xlim(0, max_count * 1.15)  # 텍스트 위한 여유 공간
-                        
+                            ax.set_xlim(0, max_count * 1.15)  # 텍스트 위한 여유 공간
+                    
                         # y축 레이블 폰트 크기 조정
-                        plt.yticks(fontsize=10)
-                        plt.xticks(fontsize=10)
-                        
+                        ax.tick_params(axis='y', labelsize=10)
+                        ax.tick_params(axis='x', labelsize=10)
+                    
+                        # 한글 폰트 적용
+                        set_korean_font(ax)
+                    
                         # 그래프 제목 및 레이아웃 조정
-                        plt.title('')
+                        ax.set_title('')
                         plt.tight_layout(pad=0)
                         st.pyplot(fig2, use_container_width=True)
                         plt.close(fig2)  # 메모리 정리
@@ -1092,14 +1095,17 @@ else:
                             # x축 범위 조정 (여백 줄이기)
                             if len(top_words) > 0:
                                 max_count = max(top_words.values())
-                                plt.xlim(0, max_count * 1.15)  # 텍스트 위한 여유 공간
+                                ax.set_xlim(0, max_count * 1.15)  # 텍스트 위한 여유 공간
                         
                             # y축 레이블 폰트 크기 조정
-                            plt.yticks(fontsize=10)
-                            plt.xticks(fontsize=10)
+                            ax.tick_params(axis='y', labelsize=10)
+                            ax.tick_params(axis='x', labelsize=10)
+                        
+                            # 한글 폰트 적용
+                            set_korean_font(ax)
                         
                             # 그래프 제목 및 레이아웃 조정
-                            plt.title('')
+                            ax.set_title('')
                             plt.tight_layout(pad=0)
                             st.pyplot(fig2, use_container_width=True)
                             plt.close(fig2)  # 메모리 정리
