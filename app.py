@@ -885,6 +885,10 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         
                         ax.set_ylabel('매출 (원)')
                         ax.set_title(f'{selected_period} 매출 상위 10개 상품')
+                        
+                        # 한글 폰트 적용
+                        set_korean_font(ax)
+                        
                         plt.tight_layout()
                         st.pyplot(fig)
                     else:
@@ -1490,6 +1494,10 @@ else:
                             
                             ax.set_ylabel('매출효율성 (매출/가격)')
                             ax.set_title(f'{selected_period} 가격 대비 매출 효율성')
+                            
+                            # 한글 폰트 적용
+                            set_korean_font(ax)
+                            
                             plt.tight_layout()
                             st.pyplot(fig)
                         else:
@@ -1516,6 +1524,10 @@ else:
                             ax2.set_title('가격대별 평균 매출')
                             ax2.set_ylabel('평균 매출 (원)')
                             ax2.tick_params(axis='x', rotation=45)
+                            
+                            # 한글 폰트 적용
+                            set_korean_font(ax1)
+                            set_korean_font(ax2)
                             
                             plt.tight_layout()
                             st.pyplot(fig)
@@ -1546,6 +1558,10 @@ else:
                                 
                                 ax.set_title('리뷰 점수 구간별 평균 매출')
                                 ax.set_ylabel('평균 매출 (원)')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
                                 plt.tight_layout()
                                 st.pyplot(fig)
                         else:
