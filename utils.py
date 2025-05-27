@@ -71,11 +71,13 @@ def get_font_path():
             '/Library/Fonts/AppleSDGothicNeo.ttc',
             '/System/Library/Fonts/AppleSDGothicNeo.ttc'
         ]
-    # 리눅스의 경우
+    # 리눅스의 경우 (Streamlit Cloud 포함)
     else:
         font_candidates = [
             '/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
-            '/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf'
+            '/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf',
+            '/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf',
+            '/usr/share/fonts/truetype/nanum/NanumMyeongjo.ttf'
         ]
     
     # 존재하는 폰트 경로 반환
@@ -84,13 +86,16 @@ def get_font_path():
             return font_path
     
     # 시스템에 설치된 폰트 중 한글 폰트 찾기
-    korean_fonts = [f for f in fm.findSystemFonts() if any(name in f.lower() for name in ['gothic', 'gulim', 'batang', 'malgun', 'nanum', 'gungsuh'])]
-    
-    if korean_fonts:
-        return korean_fonts[0]
+    try:
+        korean_fonts = [f for f in fm.findSystemFonts() if any(name in f.lower() for name in ['gothic', 'gulim', 'batang', 'malgun', 'nanum', 'gungsuh'])]
+        
+        if korean_fonts:
+            return korean_fonts[0]
+    except Exception as e:
+        print(f"폰트 검색 중 오류: {e}")
     
     # 한글 폰트가 없는 경우
-    st.warning("한글 폰트를 찾을 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
+    print("한글 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.")
     return None
 
 # 시스템에서 사용 가능한 한글 폰트 경로 찾기

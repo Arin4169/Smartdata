@@ -45,7 +45,13 @@ from utils import (
 # 한글 폰트 설정
 korean_font_path = get_font_path()
 if korean_font_path:
-    plt.rcParams['font.family'] = fm.FontProperties(fname=korean_font_path).get_name()
+    try:
+        plt.rcParams['font.family'] = fm.FontProperties(fname=korean_font_path).get_name()
+        print(f"한글 폰트 설정 완료: {korean_font_path}")
+    except Exception as e:
+        print(f"폰트 설정 오류: {e}")
+        # 폰트 파일 경로를 직접 사용
+        plt.rcParams['font.family'] = korean_font_path
 else:
     # 폰트 경로를 찾을 수 없는 경우 시스템 내장 폰트 사용 시도
     try:
@@ -55,10 +61,20 @@ else:
         # macOS
         elif platform.system() == 'Darwin':
             plt.rcParams['font.family'] = 'AppleGothic'
-        # Linux
+        # Linux (Streamlit Cloud)
         else:
-            plt.rcParams['font.family'] = 'NanumGothic'
-    except:
+            # 나눔고딕 폰트 시도
+            available_fonts = [f.name for f in fm.fontManager.ttflist]
+            nanum_fonts = [f for f in available_fonts if 'Nanum' in f]
+            
+            if nanum_fonts:
+                plt.rcParams['font.family'] = nanum_fonts[0]
+                print(f"나눔 폰트 설정: {nanum_fonts[0]}")
+            else:
+                plt.rcParams['font.family'] = 'DejaVu Sans'
+                print("기본 폰트 사용: DejaVu Sans")
+    except Exception as e:
+        print(f"폰트 설정 실패: {e}")
         st.warning("한글 폰트를 설정할 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
 
 plt.rcParams['axes.unicode_minus'] = False
