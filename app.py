@@ -1,4 +1,12 @@
 import streamlit as st
+
+# 페이지 기본 설정 (반드시 첫 번째 Streamlit 명령어여야 함)
+st.set_page_config(
+    page_title="스마트 스토어 데이터 분석",
+    page_icon="📊",
+    layout="wide"
+)
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,13 +62,6 @@ else:
         st.warning("한글 폰트를 설정할 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
 
 plt.rcParams['axes.unicode_minus'] = False
-
-# 페이지 기본 설정
-st.set_page_config(
-    page_title="스마트 스토어 데이터 분석",
-    page_icon="📊",
-    layout="wide"
-)
 
 # CSS 스타일 추가
 st.markdown("""
