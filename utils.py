@@ -316,3 +316,279 @@ def _analyze_review_categories_by_sentiment(df, review_column, sentiment_type, c
         result_df = result_df.sort_values('리뷰 수', ascending=False).reset_index(drop=True)
     
     return result_df 
+
+
+# 스토어 전체 판매현황 분석 함수들
+def check_sales_columns(df):
+    """스토어 전체 판매현황 파일의 컬럼을 확인하고 검증합니다."""
+    required_columns = ['상품명']
+    sales_periods = ['7일', '1개월', '3개월', '6개월', '1년', '2년']
+    
+    # 기본 컬럼 확인
+    if not all(col in df.columns for col in required_columns):
+        return False, f"필수 컬럼이 누락되었습니다: {required_columns}"
+    
+    # 매출 관련 컬럼 확인
+    sales_columns = [f'{period}매출' for period in sales_periods]
+    existing_sales_cols = [col for col in sales_columns if col in df.columns]
+    
+    if len(existing_sales_cols) < 2:
+        return False, "최소 2개 이상의 매출 기간 컬럼이 필요합니다"
+    
+    return True, f"확인된 매출 컬럼: {existing_sales_cols}"
+
+
+def get_sales_periods(df):
+    """데이터프레임에서 사용 가능한 매출 기간들을 반환합니다."""
+    periods = ['7일', '1개월', '3개월', '6개월', '1년', '2년']
+    available_periods = []
+    
+    for period in periods:
+        if f'{period}매출' in df.columns:
+            available_periods.append(period)
+    
+    return available_periods
+
+
+def analyze_top_products_by_period(df, period='1년', top_n=10):
+    """선택된 기간의 상위 N개 상품 분석"""
+    sales_col = f'{period}매출'
+    
+    if sales_col not in df.columns:
+        return pd.DataFrame()
+    
+    # 매출이 0보다 큰 상품들만 필터링하고, "토탈" 항목 제외
+    filtered_df = df[df[sales_col] > 0].copy()
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 상위 N개 상품 추출
+    top_products = filtered_df.nlargest(top_n, sales_col)
+    
+    # 결과 DataFrame 생성
+    result_data = {
+        '순위': range(1, len(top_products) + 1),
+        '상품명': top_products['상품명'].values,
+        f'{period} 매출': top_products[sales_col].values
+    }
+    
+    # 기본판매가격 컬럼이 있으면 추가
+    if '기본판매가격' in top_products.columns:
+        result_data['기본판매가격'] = top_products['기본판매가격'].values
+    
+    # 판매건수 컬럼이 있으면 추가 (여러 가능한 컬럼명 확인)
+    sales_count_cols = ['판매건수', f'{period}판매건수', '주문건수', f'{period}주문건수']
+    for col in sales_count_cols:
+        if col in top_products.columns:
+            result_data['판매건수'] = top_products[col].values
+            break
+    
+    # 컬럼 순서 조정: 순위, 상품명, 기본판매가격, 판매건수, 매출
+    ordered_columns = ['순위', '상품명']
+    if '기본판매가격' in result_data:
+        ordered_columns.append('기본판매가격')
+    if '판매건수' in result_data:
+        ordered_columns.append('판매건수')
+    ordered_columns.append(f'{period} 매출')
+    
+    result = pd.DataFrame(result_data)[ordered_columns]
+    
+    return result
+
+
+def analyze_sales_efficiency(df, period='1년'):
+    """가격 대비 매출 효율성 분석"""
+    sales_col = f'{period}매출'
+    price_col = '기본판매가격'
+    
+    if sales_col not in df.columns or price_col not in df.columns:
+        return pd.DataFrame()
+    
+    # 가격과 매출 정보가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=[price_col, sales_col]).copy()
+    filtered_df = filtered_df[(filtered_df[price_col] > 0) & (filtered_df[sales_col] > 0)]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 가격대비 매출지수 계산 (매출/가격)
+    filtered_df['가격대비매출지수'] = filtered_df[sales_col] / filtered_df[price_col]
+    
+    # 상위 10개 가격대비 매출지수 상품
+    top_efficiency = filtered_df.nlargest(10, '가격대비매출지수')
+    
+    result = pd.DataFrame({
+        '순위': range(1, len(top_efficiency) + 1),
+        '상품명': top_efficiency['상품명'].values,
+        '기본판매가격': top_efficiency[price_col].values,
+        f'{period} 매출': top_efficiency[sales_col].values,
+        '가격대비매출지수': top_efficiency['가격대비매출지수'].values
+    })
+    
+    return result
+
+
+def analyze_price_segments(df, period='1년'):
+    """가격대별 매출 분석"""
+    sales_col = f'{period}매출'
+    price_col = '기본판매가격'
+    
+    if sales_col not in df.columns or price_col not in df.columns:
+        return pd.DataFrame()
+    
+    # 가격과 매출 정보가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=[price_col, sales_col]).copy()
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 가격대별 구간 설정
+    price_bins = [0, 10000, 30000, 50000, 100000, float('inf')]
+    price_labels = ['1만원 이하', '1-3만원', '3-5만원', '5-10만원', '10만원 이상']
+    
+    filtered_df['가격대'] = pd.cut(filtered_df[price_col], bins=price_bins, labels=price_labels, right=False)
+    
+    # 가격대별 집계
+    price_analysis = filtered_df.groupby('가격대', observed=False).agg({
+        '상품명': 'count',
+        sales_col: ['mean', 'sum', 'count']
+    }).round(0)
+    
+    # 컬럼명 평탄화
+    price_analysis.columns = ['상품수', '평균매출', '총매출', '매출상품수']
+    price_analysis = price_analysis.reset_index()
+    
+    return price_analysis
+
+
+def analyze_review_sales_correlation(df, period='1년'):
+    """리뷰 점수와 매출의 상관관계 분석"""
+    sales_col = f'{period}매출'
+    review_score_col = '리뷰점수'
+    review_count_col = '리뷰수'
+    
+    required_cols = [sales_col, review_score_col]
+    if not all(col in df.columns for col in required_cols):
+        return None, pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[filtered_df[sales_col] > 0]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return None, pd.DataFrame()
+    
+    # 상관계수 계산
+    correlation = filtered_df[review_score_col].corr(filtered_df[sales_col])
+    
+    # 리뷰 점수 구간별 평균 매출
+    score_bins = [0, 3.0, 4.0, 4.5, 5.0]
+    score_labels = ['3.0 미만', '3.0-4.0', '4.0-4.5', '4.5-5.0']
+    
+    filtered_df['리뷰점수구간'] = pd.cut(filtered_df[review_score_col], bins=score_bins, labels=score_labels, right=False)
+    
+    # 구간별 집계
+    review_analysis = filtered_df.groupby('리뷰점수구간', observed=False).agg({
+        '상품명': 'count',
+        sales_col: 'mean',
+        review_count_col: 'mean' if review_count_col in filtered_df.columns else None
+    }).round(0)
+    
+    if review_count_col in filtered_df.columns:
+        review_analysis.columns = ['상품수', '평균매출', '평균리뷰수']
+    else:
+        review_analysis.columns = ['상품수', '평균매출']
+    
+    review_analysis = review_analysis.reset_index()
+    
+    return correlation, review_analysis
+
+
+def calculate_sales_growth_pattern(df):
+    """기간별 매출 성장 패턴 분석"""
+    periods = ['7일', '1개월', '3개월', '6개월', '1년', '2년']
+    available_periods = [p for p in periods if f'{p}매출' in df.columns]
+    
+    if len(available_periods) < 2:
+        return pd.DataFrame()
+    
+    # 각 상품별 기간별 매출 추출
+    growth_data = []
+    
+    for _, row in df.iterrows():
+        product_name = row['상품명']
+        sales_data = []
+        
+        for period in available_periods:
+            sales_col = f'{period}매출'
+            sales_data.append(row[sales_col] if pd.notna(row[sales_col]) else 0)
+        
+        # 단기(7일-1개월) vs 장기(1년-2년) 매출 비교
+        if '7일' in available_periods and '1년' in available_periods:
+            short_term = row['7일매출'] if '7일매출' in df.columns else 0
+            long_term = row['1년매출'] if '1년매출' in df.columns else 0
+            
+            if long_term > 0:
+                growth_ratio = short_term / long_term * 365 / 7  # 연간 환산
+                growth_data.append({
+                    '상품명': product_name,
+                    '단기매출(7일)': short_term,
+                    '장기매출(1년)': long_term,
+                    '성장패턴': '안정형' if 0.8 <= growth_ratio <= 1.2 else ('성장형' if growth_ratio > 1.2 else '감소형')
+                })
+    
+    return pd.DataFrame(growth_data)
+
+
+def get_sales_summary_stats(df, period='1년'):
+    """매출 요약 통계"""
+    sales_col = f'{period}매출'
+    
+    if sales_col not in df.columns:
+        return {}
+    
+    # 토탈 항목을 제외한 실제 상품들만 필터링
+    filtered_df = df[df[sales_col] > 0].copy()
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    sales_data = filtered_df[sales_col]
+    
+    if sales_data.empty:
+        return {}
+    
+    summary = {
+        '총매출': int(sales_data.sum()),
+        '평균매출': int(sales_data.mean()),
+        '중간값매출': int(sales_data.median()),
+        '최대매출': int(sales_data.max()),
+        '최소매출': int(sales_data.min()),
+        '상품수': len(sales_data),
+        '매출상위10%기준': int(sales_data.quantile(0.9))
+    }
+    
+    return summary

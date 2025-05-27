@@ -23,7 +23,15 @@ from utils import (
     DEFAULT_STOPWORDS,
     analyze_positive_review_categories,
     analyze_neutral_review_categories,
-    analyze_negative_review_categories
+    analyze_negative_review_categories,
+    check_sales_columns,
+    get_sales_periods,
+    analyze_top_products_by_period,
+    analyze_sales_efficiency,
+    analyze_price_segments,
+    analyze_review_sales_correlation,
+    calculate_sales_growth_pattern,
+    get_sales_summary_stats
 )
 
 # 한글 폰트 설정
@@ -119,33 +127,41 @@ st.markdown("""
         margin-top: 2rem;
         padding: 2rem;
     }
-    /* 탭 폰트 크기 확대 */
-    .stTabs [data-baseweb="tab-list"] button {
-        font-size: 1.5rem !important;
+    /* 탭 폰트 크기 확대 - 더 강력한 선택자 사용 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        font-size: 2.0rem !important;
         font-weight: 600 !important;
+        padding: 0.75rem 1rem !important;
     }
-    .stTabs [data-baseweb="tab"] {
-        font-size: 1.5rem !important;
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] button {
+        font-size: 2.0rem !important;
         font-weight: 600 !important;
+        padding: 0.75rem 1rem !important;
     }
-    .stTabs [data-baseweb="tab-list"] {
-        font-size: 1.5rem !important;
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        font-size: 2.0rem !important;
+    }
+    .stTabs > div > div > div > div > button {
+        font-size: 2.0rem !important;
         font-weight: 600 !important;
+        padding: 0.75rem 1rem !important;
     }
-    div[data-testid="stTabs"] > div > div > div > div {
-        font-size: 1.5rem !important;
+    /* 추가적인 탭 텍스트 타겟팅 */
+    [data-testid="stTabs"] button {
+        font-size: 2.0rem !important;
         font-weight: 600 !important;
     }
     /* 불용어 버튼을 컴팩트하게 만들기 */
     .stButton > button {
-        font-size: 0.75rem !important;
-        padding: 0.15rem 0.4rem !important;
-        height: 1.8rem !important;
-        min-height: 1.8rem !important;
+        font-size: 0.7rem !important;
+        padding: 0.1rem 0.3rem !important;
+        height: 1.5rem !important;
+        min-height: 1.5rem !important;
         width: auto !important;
-        min-width: 60px !important;
-        max-width: 120px !important;
-        margin: 2px !important;
+        min-width: 45px !important;
+        max-width: 80px !important;
+        margin: 1px !important;
+        border-radius: 0.25rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -163,19 +179,19 @@ def render_stopwords_ui():
     st.info("불용어는 워드클라우드에서 제외되는 단어입니다. 불필요하게 자주 등장하는 단어를 추가하면 더 의미 있는 분석이 가능합니다.")
     
     # 현재 불용어 목록과 추가 기능을 좌우로 배치
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         # 현재 불용어 목록 표시
         st.markdown("**📋 현재 불용어 목록**")
         current_stopwords = get_stopwords()
         
-        # 불용어를 더 많은 열로 표시 (6열로 변경)
+        # 불용어를 더 많은 열로 표시 (8열로 증가)
         if current_stopwords:
-            cols = st.columns(6)  # 4열에서 6열로 증가
+            cols = st.columns(8)  # 6열에서 8열로 증가
             for i, word in enumerate(sorted(current_stopwords)):
-                with cols[i % 6]:
-                    if st.button(f"❌ {word}", key=f"remove_{word}", help=f"'{word}' 삭제"):
+                with cols[i % 8]:
+                    if st.button(f"✕ {word}", key=f"remove_{word}", help=f"'{word}' 삭제"):
                         remove_stopword(word)
                         st.rerun()
         else:
@@ -217,7 +233,12 @@ def detect_file_type(df):
     if any(col in df.columns for col in potential_option_columns) and any(col in df.columns for col in potential_count_columns):
         return "option"
     
-    # 판매 현황 파일 감지 (기타 파일은 판매 현황으로 간주)
+    # 스토어 전체 판매현황 파일 감지
+    potential_sales_columns = ['상품명', '매출', '판매건수', '기본판매가격']
+    if '상품명' in df.columns and any('매출' in str(col) for col in df.columns):
+        return "sales"
+    
+    # 기타 파일은 sales로 간주
     return "sales"
 
 # 함수: 리뷰 데이터프레임 컬럼 이름 확인 및 수정
@@ -289,8 +310,8 @@ with st.sidebar:
     
     analysis_option = st.radio(
         "분석 유형 선택",
-        ["홈", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석"],
-        index=["홈", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석"].index(st.session_state.analysis_option)
+        ["홈", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"],
+        index=["홈", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.analysis_option)
     )
     
     # 라디오 버튼 선택이 변경되면 세션 상태 업데이트
@@ -395,12 +416,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
         if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
             review_df = pd.read_excel("data/reviewcontents (4).xlsx")
             review_df = check_review_columns(review_df)
-            st.info("📝 샘플 리뷰 데이터를 사용하여 분석합니다.")
+        elif st.session_state.analysis_option == "스토어 전체 판매현황":
+            sales_df = pd.read_excel("data/스토어전체판매현황 (2).xlsx")
         
         if st.session_state.analysis_option == "옵션 분석":
             option_df = pd.read_excel("data/옵션비율 (2).xlsx")
             option_df = check_option_columns(option_df)
-            st.info("📊 샘플 옵션 데이터를 사용하여 분석합니다.")
         
         # 분석 실행
         if st.session_state.analysis_option == "리뷰 분석 - 워드클라우드":
@@ -413,6 +434,7 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
             st.markdown("---")
             st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("📊 워드클라우드 분석 결과")
+            st.markdown("<br>", unsafe_allow_html=True)
             
             with st.spinner("워드클라우드 생성 중..."):
                 word_count, top_words = generate_wordcloud_data(review_df, 'review_content')
@@ -429,11 +451,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         st.markdown("<h3 style='text-align: center;'>워드클라우드</h3>", unsafe_allow_html=True)
                         
                         # 워드클라우드 표시
-                        fig1, ax = plt.subplots(figsize=(9.6, 9.6))
+                        fig1, ax = plt.subplots(figsize=(8, 8))
                         ax.imshow(wc, interpolation='bilinear')
                         ax.axis('off')
                         plt.tight_layout(pad=0)
-                        st.pyplot(fig1)
+                        st.pyplot(fig1, use_container_width=True)
+                        plt.close(fig1)  # 메모리 정리
                     
                     with col2:
                         # 상위 20개 단어 표시 (중앙 정렬)
@@ -448,8 +471,8 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         # 리뷰수 기준 내림차순 정렬 (높은 수가 위쪽에)
                         top_words_df = top_words_df.sort_values('언급 횟수', ascending=True)
                         
-                        # 워드클라우드와 같은 크기로 그래프 생성
-                        fig2, ax = plt.subplots(figsize=(9.6, 9.6))
+                        # 상위 20개 단어 차트 생성
+                        fig2, ax = plt.subplots(figsize=(8, 8))
                         bars = ax.barh(top_words_df['단어'], top_words_df['언급 횟수'], color='steelblue')
                         
                         # 리뷰 수 표시
@@ -471,7 +494,8 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         # 그래프 제목 및 레이아웃 조정
                         plt.title('')
                         plt.tight_layout(pad=0)
-                        st.pyplot(fig2)
+                        st.pyplot(fig2, use_container_width=True)
+                        plt.close(fig2)  # 메모리 정리
                 else:
                     st.warning("분석할 리뷰 데이터가 충분하지 않습니다.")
         
@@ -488,7 +512,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 with col1:
                     # 감정별 리뷰 수 막대 그래프
                     fig, ax = plt.subplots(figsize=(6, 4))
-                    sns.barplot(x='감정', y='리뷰 수', data=sentiment_counts, palette=['#ff6b6b', '#4ecdc4', '#45b7d1'], ax=ax)
+                    
+                    # 감정별 색상 매핑
+                    emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
+                    colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
+                    
+                    ax.bar(sentiment_counts['감정'], sentiment_counts['리뷰 수'], color=colors)
                     plt.title('감정별 리뷰 수', pad=20)
                     plt.ylabel('리뷰 수')
                     for i, v in enumerate(sentiment_counts['리뷰 수']):
@@ -503,34 +532,55 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 with col2:
                     # 감정 비율 파이 차트
                     fig = plt.figure(figsize=(6, 4))
-                    colors = ['#ff6b6b', '#4ecdc4', '#45b7d1']
+                    
+                    # 감정별 색상 매핑
+                    emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
+                    colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
+                    
                     plt.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
                            autopct='%1.1f%%', colors=colors, startangle=90)
                     plt.title('감정 분포 비율', pad=20)
                     plt.axis('equal')
                     st.pyplot(fig)
                 
+                # 섹션 구분
+                st.markdown("---")
+                st.markdown("<br>", unsafe_allow_html=True)
+                
                 # 감정별 리뷰 분석
                 st.subheader("감정별 리뷰 카테고리 분석")
+                
+                # 탭 폰트 크기 강제 적용
+                st.markdown("""
+                <style>
+                .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                    font-size: 24px !important;
+                    font-weight: 600 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
                 
                 # 탭 생성
                 tab1, tab2, tab3 = st.tabs(["긍정 리뷰", "중립 리뷰", "부정 리뷰"])
                 
                 with tab1:
                     # 긍정 리뷰 카테고리 분석
-                    st.write("**📊 긍정 리뷰 카테고리 분석:**")
+                    st.markdown("### 📊 긍정 리뷰 카테고리 분석")
                     with st.spinner("긍정 리뷰 카테고리 분석 중..."):
                         positive_category_analysis = analyze_positive_review_categories(df_sentiment, 'review_content')
                         
                         if not positive_category_analysis.empty:
                             st.dataframe(positive_category_analysis, use_container_width=True, hide_index=True)
                             
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            
                             # 카테고리별 리뷰 수 시각화
                             if len(positive_category_analysis) > 0:
                                 fig, ax = plt.subplots(figsize=(8, 4))
-                                sns.barplot(data=positive_category_analysis, x='카테고리', y='리뷰 수', palette='viridis')
+                                ax.bar(positive_category_analysis['카테고리'], positive_category_analysis['리뷰 수'], color='#28a745')
                                 plt.title('긍정 리뷰 카테고리별 언급 빈도')
                                 plt.xticks(rotation=45)
+                                plt.ylabel('리뷰 수')
                                 plt.tight_layout()
                                 st.pyplot(fig)
                         else:
@@ -538,12 +588,14 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 
                 with tab2:
                     # 중립 리뷰 카테고리 분석
-                    st.write("**📊 중립 리뷰 카테고리 분석:**")
+                    st.markdown("### 📊 중립 리뷰 카테고리 분석")
                     with st.spinner("중립 리뷰 카테고리 분석 중..."):
                         neutral_category_analysis = analyze_neutral_review_categories(df_sentiment, 'review_content')
                         
                         if not neutral_category_analysis.empty:
                             st.dataframe(neutral_category_analysis, use_container_width=True, hide_index=True)
+                            
+                            st.markdown("<br>", unsafe_allow_html=True)
                             
                             # 카테고리별 리뷰 수 시각화
                             if len(neutral_category_analysis) > 0:
@@ -555,7 +607,7 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                                 bars = ax.bar(range(len(neutral_category_analysis)), 
                                             neutral_category_analysis['리뷰 수'], 
                                             width=bar_width, 
-                                            color=plt.cm.coolwarm(0.7))
+                                            color='#ffa500')
                                 
                                 # 막대 위에 숫자 표시
                                 for i, v in enumerate(neutral_category_analysis['리뷰 수']):
@@ -579,12 +631,14 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 
                 with tab3:
                     # 부정 리뷰 카테고리 분석
-                    st.write("**📊 부정 리뷰 카테고리 분석:**")
+                    st.markdown("### 📊 부정 리뷰 카테고리 분석")
                     with st.spinner("부정 리뷰 카테고리 분석 중..."):
                         negative_category_analysis = analyze_negative_review_categories(df_sentiment, 'review_content')
                         
                         if not negative_category_analysis.empty:
                             st.dataframe(negative_category_analysis, use_container_width=True, hide_index=True)
+                            
+                            st.markdown("<br>", unsafe_allow_html=True)
                             
                             # 카테고리별 리뷰 수 시각화
                             if len(negative_category_analysis) > 0:
@@ -596,7 +650,7 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                                 bars = ax.bar(range(len(negative_category_analysis)), 
                                             negative_category_analysis['리뷰 수'], 
                                             width=bar_width, 
-                                            color=plt.cm.Reds(0.7))
+                                            color='#dc3545')
                                 
                                 # 막대 위에 숫자 표시
                                 for i, v in enumerate(negative_category_analysis['리뷰 수']):
@@ -627,7 +681,22 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 
                 # 상위 10개 옵션 표시
                 st.subheader("상위 10개 옵션")
+                
+                # 표를 적절한 크기로 표시 (떨림 방지)
+                st.markdown("""
+                <style>
+                div[data-testid="stDataFrame"] {
+                    width: 800px !important;
+                    max-width: 800px !important;
+                    overflow: visible !important;
+                    margin-left: 50px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
                 st.dataframe(top_options)
+                
+                # 간격 추가
+                st.markdown("<br><br>", unsafe_allow_html=True)
                 
                 # 상위 10개 옵션 막대 그래프
                 fig, ax = plt.subplots(figsize=(10, 6))
@@ -653,7 +722,206 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 plt.ylabel('판매량')
                 plt.tight_layout()
                 st.pyplot(fig)
+        
+        elif st.session_state.analysis_option == "스토어 전체 판매현황":
+            st.header("🏪 스토어 전체 판매현황 분석")
+            
+            # 사용 가능한 기간 가져오기
+            available_periods = get_sales_periods(sales_df)
+            
+            if len(available_periods) == 0:
+                st.error("매출 데이터를 찾을 수 없습니다.")
+            else:
+                # 기간 선택 필터
+                st.subheader("📅 분석 기간 선택")
                 
+                # selectbox 커서 스타일 추가
+                st.markdown("""
+                <style>
+                div[data-baseweb="select"] {
+                    cursor: pointer !important;
+                }
+                div[data-baseweb="select"] > div {
+                    cursor: pointer !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                selected_period = st.selectbox(
+                    "매출 분석 기간을 선택하세요:",
+                    available_periods,
+                    index=len(available_periods) - 1 if '1년' in available_periods else 0
+                )
+                
+                # 섹션 구분
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # 매출 요약 통계
+                st.subheader("📊 매출 요약 통계")
+                summary_stats = get_sales_summary_stats(sales_df, selected_period)
+                
+                if summary_stats:
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("총 매출", f"{summary_stats['총매출']:,}원")
+                    with col2:
+                        st.metric("평균 매출", f"{summary_stats['평균매출']:,}원")
+                    with col3:
+                        st.metric("상품 수", f"{summary_stats['상품수']:,}개")
+                    with col4:
+                        st.metric("최대 매출", f"{summary_stats['최대매출']:,}원")
+                
+                # 섹션 구분
+                st.markdown("---")
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                                                    # 분석 탭 생성
+                st.subheader("📈 상세 분석")
+                
+                # 탭 폰트 크기 강제 적용
+                st.markdown("""
+                <style>
+                .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                    font-size: 24px !important;
+                    font-weight: 600 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "가격대비 매출지수", "가격대별 분석", "리뷰-매출 상관관계"])
+                
+                with tab1:
+                    st.subheader(f"🏆 {selected_period} 매출 상위 10개 상품")
+                    top_products = analyze_top_products_by_period(sales_df, selected_period, 10)
+                    
+                    if not top_products.empty:
+                        st.dataframe(top_products, use_container_width=True, hide_index=True)
+                        
+                        # 표와 그래프 사이 간격 추가
+                        st.markdown("<br><br>", unsafe_allow_html=True)
+                        
+                        # 매출 랭킹 시각화
+                        fig, ax = plt.subplots(figsize=(12, 6))
+                        
+                        # 막대 그래프 생성
+                        bars = ax.bar(range(len(top_products)), 
+                                     top_products[f'{selected_period} 매출'], 
+                                     color='steelblue')
+                        
+                        # 상품명을 x축 레이블로 설정 (회전)
+                        ax.set_xticks(range(len(top_products)))
+                        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                           for name in top_products['상품명']], 
+                                          rotation=45, ha='right')
+                        
+                        # 막대 위에 매출 표시
+                        for i, v in enumerate(top_products[f'{selected_period} 매출']):
+                            ax.text(i, v + max(top_products[f'{selected_period} 매출']) * 0.01, 
+                                   f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
+                        
+                        ax.set_ylabel('매출 (원)')
+                        ax.set_title(f'{selected_period} 매출 상위 10개 상품')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                    else:
+                        st.info("매출 데이터가 없습니다.")
+                
+                with tab2:
+                    st.subheader(f"⚡ {selected_period} 가격대비 매출지수 분석")
+                    efficiency_data = analyze_sales_efficiency(sales_df, selected_period)
+                    
+                    if not efficiency_data.empty:
+                        st.dataframe(efficiency_data, use_container_width=True, hide_index=True)
+                        
+                        # 표와 그래프 사이 간격 추가
+                        st.markdown("<br><br>", unsafe_allow_html=True)
+                        
+                        # 가격대비 매출지수 시각화
+                        fig, ax = plt.subplots(figsize=(12, 6))
+                        
+                        bars = ax.bar(range(len(efficiency_data)), 
+                                     efficiency_data['가격대비매출지수'], 
+                                     color='orange')
+                        
+                        ax.set_xticks(range(len(efficiency_data)))
+                        ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                           for name in efficiency_data['상품명']], 
+                                          rotation=45, ha='right')
+                        
+                        # 막대 위에 지수 표시
+                        for i, v in enumerate(efficiency_data['가격대비매출지수']):
+                            ax.text(i, v + max(efficiency_data['가격대비매출지수']) * 0.01, 
+                                   f'{v:.1f}', ha='center', va='bottom', fontsize=8)
+                        
+                        ax.set_ylabel('가격대비매출지수 (매출÷가격)')
+                        ax.set_title(f'{selected_period} 가격대비 매출지수 상위 10개 상품')
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                    else:
+                        st.info("가격대비 매출지수 분석을 위한 데이터가 부족합니다.")
+                
+                with tab3:
+                    st.subheader(f"💰 가격대별 {selected_period} 매출 분석")
+                    price_segments = analyze_price_segments(sales_df, selected_period)
+                    
+                    if not price_segments.empty:
+                        st.dataframe(price_segments, use_container_width=True, hide_index=True)
+                        
+                        # 표와 그래프 사이 간격 추가
+                        st.markdown("<br><br>", unsafe_allow_html=True)
+                        
+                        # 가격대별 분석 시각화
+                        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                        
+                        # 가격대별 상품수
+                        ax1.bar(price_segments['가격대'], price_segments['상품수'], color='lightblue')
+                        ax1.set_title('가격대별 상품 수')
+                        ax1.set_ylabel('상품 수')
+                        ax1.tick_params(axis='x', rotation=45)
+                        
+                        # 가격대별 평균매출
+                        ax2.bar(price_segments['가격대'], price_segments['평균매출'], color='lightgreen')
+                        ax2.set_title('가격대별 평균 매출')
+                        ax2.set_ylabel('평균 매출 (원)')
+                        ax2.tick_params(axis='x', rotation=45)
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                    else:
+                        st.info("가격대별 분석을 위한 데이터가 부족합니다.")
+                
+                with tab4:
+                    st.subheader(f"⭐ 리뷰 점수와 {selected_period} 매출 상관관계")
+                    correlation, review_analysis = analyze_review_sales_correlation(sales_df, selected_period)
+                    
+                    if correlation is not None:
+                        st.info(f"**상관계수: {correlation:.3f}**")
+                        
+                        if not review_analysis.empty:
+                            st.dataframe(review_analysis, use_container_width=True, hide_index=True)
+                            
+                            # 표와 그래프 사이 간격 추가
+                            st.markdown("<br><br>", unsafe_allow_html=True)
+                            
+                            # 리뷰 점수별 평균 매출 시각화
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            
+                            bars = ax.bar(review_analysis['리뷰점수구간'], 
+                                         review_analysis['평균매출'], 
+                                         color='gold')
+                            
+                            # 막대 위에 값 표시
+                            for i, v in enumerate(review_analysis['평균매출']):
+                                ax.text(i, v + max(review_analysis['평균매출']) * 0.01, 
+                                       f'{v:,.0f}', ha='center', va='bottom')
+                            
+                            ax.set_title('리뷰 점수 구간별 평균 매출')
+                            ax.set_ylabel('평균 매출 (원)')
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                    else:
+                        st.info("리뷰-매출 상관관계 분석을 위한 데이터가 부족합니다.")
+        
     except Exception as e:
         st.error(f"샘플 데이터를 불러오는 중 오류가 발생했습니다: {e}")
         st.info("홈으로 돌아가서 파일을 직접 업로드해주세요.")
@@ -700,6 +968,7 @@ else:
                 st.markdown("---")
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.subheader("📊 워드클라우드 분석 결과")
+                st.markdown("<br>", unsafe_allow_html=True)
                 
                 with st.spinner("워드클라우드 생성 중..."):
                     word_count, top_words = generate_wordcloud_data(review_df, 'review_content')
@@ -716,11 +985,12 @@ else:
                             st.markdown("<h3 style='text-align: center;'>워드클라우드</h3>", unsafe_allow_html=True)
                             
                             # 워드클라우드 표시
-                            fig1, ax = plt.subplots(figsize=(9.6, 9.6))
+                            fig1, ax = plt.subplots(figsize=(8, 8))
                             ax.imshow(wc, interpolation='bilinear')
                             ax.axis('off')
                             plt.tight_layout(pad=0)
-                            st.pyplot(fig1)
+                            st.pyplot(fig1, use_container_width=True)
+                            plt.close(fig1)  # 메모리 정리
                         
                         with col2:
                             # 상위 20개 단어 표시 (중앙 정렬)
@@ -735,8 +1005,8 @@ else:
                             # 리뷰수 기준 내림차순 정렬 (높은 수가 위쪽에)
                             top_words_df = top_words_df.sort_values('언급 횟수', ascending=True)
                             
-                            # 워드클라우드와 같은 크기로 그래프 생성
-                            fig2, ax = plt.subplots(figsize=(9.6, 9.6))
+                            # 상위 20개 단어 차트 생성
+                            fig2, ax = plt.subplots(figsize=(8, 8))
                             bars = ax.barh(top_words_df['단어'], top_words_df['언급 횟수'], color='steelblue')
                             
                             # 리뷰 수 표시
@@ -758,7 +1028,8 @@ else:
                             # 그래프 제목 및 레이아웃 조정
                             plt.title('')
                             plt.tight_layout(pad=0)
-                            st.pyplot(fig2)
+                            st.pyplot(fig2, use_container_width=True)
+                            plt.close(fig2)  # 메모리 정리
                     else:
                         st.warning("리뷰 분석을 위해 리뷰 파일을 업로드해주세요.")
             
@@ -776,7 +1047,12 @@ else:
                     with col1:
                         # 감정별 리뷰 수 막대 그래프
                         fig, ax = plt.subplots(figsize=(6, 4))
-                        sns.barplot(x='감정', y='리뷰 수', data=sentiment_counts, palette=['#ff6b6b', '#4ecdc4', '#45b7d1'], ax=ax)
+                        
+                        # 감정별 색상 매핑
+                        emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
+                        colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
+                        
+                        ax.bar(sentiment_counts['감정'], sentiment_counts['리뷰 수'], color=colors)
                         plt.title('감정별 리뷰 수', pad=20)
                         plt.ylabel('리뷰 수')
                         for i, v in enumerate(sentiment_counts['리뷰 수']):
@@ -791,34 +1067,55 @@ else:
                     with col2:
                         # 감정 비율 파이 차트
                         fig = plt.figure(figsize=(6, 4))
-                        colors = ['#ff6b6b', '#4ecdc4', '#45b7d1']
+                        
+                        # 감정별 색상 매핑
+                        emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
+                        colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
+                        
                         plt.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
                                autopct='%1.1f%%', colors=colors, startangle=90)
                         plt.title('감정 분포 비율', pad=20)
                         plt.axis('equal')
                         st.pyplot(fig)
                     
+                    # 섹션 구분
+                    st.markdown("---")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
                     # 감정별 리뷰 분석
                     st.subheader("감정별 리뷰 카테고리 분석")
                     
-                    # 탭 생성
+                    # 탭 폰트 크기 강제 적용
+                    st.markdown("""
+                    <style>
+                    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                        font-size: 24px !important;
+                        font-weight: 600 !important;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    # 탭 생성  
                     tab1, tab2, tab3 = st.tabs(["긍정 리뷰", "중립 리뷰", "부정 리뷰"])
                     
                     with tab1:
                         # 긍정 리뷰 카테고리 분석
-                        st.write("**📊 긍정 리뷰 카테고리 분석:**")
+                        st.markdown("### 📊 긍정 리뷰 카테고리 분석")
                         with st.spinner("긍정 리뷰 카테고리 분석 중..."):
                             positive_category_analysis = analyze_positive_review_categories(df_sentiment, 'review_content')
                             
                             if not positive_category_analysis.empty:
                                 st.dataframe(positive_category_analysis, use_container_width=True, hide_index=True)
                                 
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                
                                 # 카테고리별 리뷰 수 시각화
                                 if len(positive_category_analysis) > 0:
                                     fig, ax = plt.subplots(figsize=(8, 4))
-                                    sns.barplot(data=positive_category_analysis, x='카테고리', y='리뷰 수', palette='viridis')
+                                    ax.bar(positive_category_analysis['카테고리'], positive_category_analysis['리뷰 수'], color='#28a745')
                                     plt.title('긍정 리뷰 카테고리별 언급 빈도')
                                     plt.xticks(rotation=45)
+                                    plt.ylabel('리뷰 수')
                                     plt.tight_layout()
                                     st.pyplot(fig)
                             else:
@@ -826,12 +1123,14 @@ else:
                     
                     with tab2:
                         # 중립 리뷰 카테고리 분석
-                        st.write("**📊 중립 리뷰 카테고리 분석:**")
+                        st.markdown("### 📊 중립 리뷰 카테고리 분석")
                         with st.spinner("중립 리뷰 카테고리 분석 중..."):
                             neutral_category_analysis = analyze_neutral_review_categories(df_sentiment, 'review_content')
                             
                             if not neutral_category_analysis.empty:
                                 st.dataframe(neutral_category_analysis, use_container_width=True, hide_index=True)
+                                
+                                st.markdown("<br>", unsafe_allow_html=True)
                                 
                                 # 카테고리별 리뷰 수 시각화
                                 if len(neutral_category_analysis) > 0:
@@ -843,7 +1142,7 @@ else:
                                     bars = ax.bar(range(len(neutral_category_analysis)), 
                                                 neutral_category_analysis['리뷰 수'], 
                                                 width=bar_width, 
-                                                color=plt.cm.coolwarm(0.7))
+                                                color='#ffa500')
                                     
                                     # 막대 위에 숫자 표시
                                     for i, v in enumerate(neutral_category_analysis['리뷰 수']):
@@ -867,12 +1166,14 @@ else:
                     
                     with tab3:
                         # 부정 리뷰 카테고리 분석
-                        st.write("**📊 부정 리뷰 카테고리 분석:**")
+                        st.markdown("### 📊 부정 리뷰 카테고리 분석")
                         with st.spinner("부정 리뷰 카테고리 분석 중..."):
                             negative_category_analysis = analyze_negative_review_categories(df_sentiment, 'review_content')
                             
                             if not negative_category_analysis.empty:
                                 st.dataframe(negative_category_analysis, use_container_width=True, hide_index=True)
+                                
+                                st.markdown("<br>", unsafe_allow_html=True)
                                 
                                 # 카테고리별 리뷰 수 시각화
                                 if len(negative_category_analysis) > 0:
@@ -884,7 +1185,7 @@ else:
                                     bars = ax.bar(range(len(negative_category_analysis)), 
                                                 negative_category_analysis['리뷰 수'], 
                                                 width=bar_width, 
-                                                color=plt.cm.Reds(0.7))
+                                                color='#dc3545')
                                     
                                     # 막대 위에 숫자 표시
                                     for i, v in enumerate(negative_category_analysis['리뷰 수']):
@@ -918,7 +1219,22 @@ else:
                     
                     # 상위 10개 옵션 표시
                     st.subheader("상위 10개 옵션")
+                    
+                    # 표를 적절한 크기로 표시 (떨림 방지)
+                    st.markdown("""
+                    <style>
+                    div[data-testid="stDataFrame"] {
+                        width: 800px !important;
+                        max-width: 800px !important;
+                        overflow: visible !important;
+                        margin-left: 50px !important;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
                     st.dataframe(top_options)
+                    
+                    # 간격 추가
+                    st.markdown("<br><br>", unsafe_allow_html=True)
                     
                     # 상위 10개 옵션 막대 그래프
                     fig, ax = plt.subplots(figsize=(10, 6))
@@ -946,6 +1262,190 @@ else:
                     st.pyplot(fig)
             else:
                 st.warning("옵션 분석을 위해 옵션 비율 파일을 업로드해주세요.")
+        
+        elif st.session_state.analysis_option == "스토어 전체 판매현황":
+            if sales_df is not None:
+                st.header("🏪 스토어 전체 판매현황 분석")
+                
+                # 사용 가능한 기간 가져오기
+                available_periods = get_sales_periods(sales_df)
+                
+                if len(available_periods) == 0:
+                    st.error("매출 데이터를 찾을 수 없습니다.")
+                else:
+                    # 기간 선택 필터
+                    st.subheader("📅 분석 기간 선택")
+                    
+                    # selectbox 커서 스타일 추가
+                    st.markdown("""
+                    <style>
+                    div[data-baseweb="select"] {
+                        cursor: pointer !important;
+                    }
+                    div[data-baseweb="select"] > div {
+                        cursor: pointer !important;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    selected_period = st.selectbox(
+                        "매출 분석 기간을 선택하세요:",
+                        available_periods,
+                        index=len(available_periods) - 1 if '1년' in available_periods else 0
+                    )
+                    
+                    # 매출 요약 통계
+                    st.subheader("📊 매출 요약 통계")
+                    summary_stats = get_sales_summary_stats(sales_df, selected_period)
+                    
+                    if summary_stats:
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("총 매출", f"{summary_stats['총매출']:,}원")
+                        with col2:
+                            st.metric("평균 매출", f"{summary_stats['평균매출']:,}원")
+                        with col3:
+                            st.metric("상품 수", f"{summary_stats['상품수']:,}개")
+                        with col4:
+                            st.metric("최대 매출", f"{summary_stats['최대매출']:,}원")
+                    
+                    # 분석 탭 생성
+                    # 탭 폰트 크기 강제 적용
+                    st.markdown("""
+                    <style>
+                    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                        font-size: 24px !important;
+                        font-weight: 600 !important;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "매출 효율성", "가격대별 분석", "리뷰-매출 상관관계"])
+                    
+                    with tab1:
+                        st.subheader(f"🏆 {selected_period} 매출 상위 10개 상품")
+                        top_products = analyze_top_products_by_period(sales_df, selected_period, 10)
+                        
+                        if not top_products.empty:
+                            st.dataframe(top_products, use_container_width=True, hide_index=True)
+                            
+                            # 표와 그래프 사이 간격 추가
+                            st.markdown("<br><br>", unsafe_allow_html=True)
+                            
+                            # 매출 랭킹 시각화
+                            fig, ax = plt.subplots(figsize=(12, 6))
+                            
+                            # 막대 그래프 생성
+                            bars = ax.bar(range(len(top_products)), 
+                                         top_products[f'{selected_period} 매출'], 
+                                         color='steelblue')
+                            
+                            # 상품명을 x축 레이블로 설정 (회전)
+                            ax.set_xticks(range(len(top_products)))
+                            ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                               for name in top_products['상품명']], 
+                                              rotation=45, ha='right')
+                            
+                            # 막대 위에 매출 표시
+                            for i, v in enumerate(top_products[f'{selected_period} 매출']):
+                                ax.text(i, v + max(top_products[f'{selected_period} 매출']) * 0.01, 
+                                       f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
+                            
+                            ax.set_ylabel('매출 (원)')
+                            ax.set_title(f'{selected_period} 매출 상위 10개 상품')
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                        else:
+                            st.info("매출 데이터가 없습니다.")
+                    
+                    with tab2:
+                        st.subheader(f"⚡ {selected_period} 매출 효율성 분석")
+                        efficiency_data = analyze_sales_efficiency(sales_df, selected_period)
+                        
+                        if not efficiency_data.empty:
+                            st.dataframe(efficiency_data, use_container_width=True, hide_index=True)
+                            
+                            # 효율성 시각화
+                            fig, ax = plt.subplots(figsize=(12, 6))
+                            
+                            bars = ax.bar(range(len(efficiency_data)), 
+                                         efficiency_data['매출효율성'], 
+                                         color='orange')
+                            
+                            ax.set_xticks(range(len(efficiency_data)))
+                            ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                               for name in efficiency_data['상품명']], 
+                                              rotation=45, ha='right')
+                            
+                            # 막대 위에 효율성 표시
+                            for i, v in enumerate(efficiency_data['매출효율성']):
+                                ax.text(i, v + max(efficiency_data['매출효율성']) * 0.01, 
+                                       f'{v:.1f}', ha='center', va='bottom', fontsize=8)
+                            
+                            ax.set_ylabel('매출효율성 (매출/가격)')
+                            ax.set_title(f'{selected_period} 가격 대비 매출 효율성')
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                        else:
+                            st.info("매출 효율성 분석을 위한 데이터가 부족합니다.")
+                    
+                    with tab3:
+                        st.subheader(f"💰 가격대별 {selected_period} 매출 분석")
+                        price_segments = analyze_price_segments(sales_df, selected_period)
+                        
+                        if not price_segments.empty:
+                            st.dataframe(price_segments, use_container_width=True, hide_index=True)
+                            
+                            # 가격대별 분석 시각화
+                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                            
+                            # 가격대별 상품수
+                            ax1.bar(price_segments['가격대'], price_segments['상품수'], color='lightblue')
+                            ax1.set_title('가격대별 상품 수')
+                            ax1.set_ylabel('상품 수')
+                            ax1.tick_params(axis='x', rotation=45)
+                            
+                            # 가격대별 평균매출
+                            ax2.bar(price_segments['가격대'], price_segments['평균매출'], color='lightgreen')
+                            ax2.set_title('가격대별 평균 매출')
+                            ax2.set_ylabel('평균 매출 (원)')
+                            ax2.tick_params(axis='x', rotation=45)
+                            
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                        else:
+                            st.info("가격대별 분석을 위한 데이터가 부족합니다.")
+                    
+                    with tab4:
+                        st.subheader(f"⭐ 리뷰 점수와 {selected_period} 매출 상관관계")
+                        correlation, review_analysis = analyze_review_sales_correlation(sales_df, selected_period)
+                        
+                        if correlation is not None:
+                            st.info(f"**상관계수: {correlation:.3f}**")
+                            
+                            if not review_analysis.empty:
+                                st.dataframe(review_analysis, use_container_width=True, hide_index=True)
+                                
+                                # 리뷰 점수별 평균 매출 시각화
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                
+                                bars = ax.bar(review_analysis['리뷰점수구간'], 
+                                             review_analysis['평균매출'], 
+                                             color='gold')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(review_analysis['평균매출']):
+                                    ax.text(i, v + max(review_analysis['평균매출']) * 0.01, 
+                                           f'{v:,.0f}', ha='center', va='bottom')
+                                
+                                ax.set_title('리뷰 점수 구간별 평균 매출')
+                                ax.set_ylabel('평균 매출 (원)')
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                        else:
+                            st.info("리뷰-매출 상관관계 분석을 위한 데이터가 부족합니다.")
+            else:
+                st.warning("스토어 전체 판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
             
     except Exception as e:
-        st.error(f"데이터 처리 중 오류가 발생했습니다: {e}") 
+        st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
