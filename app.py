@@ -44,9 +44,12 @@ from utils import (
 
 # 한글 폰트 설정
 korean_font_path = get_font_path()
+korean_font_prop = None
+
 if korean_font_path:
     try:
-        plt.rcParams['font.family'] = fm.FontProperties(fname=korean_font_path).get_name()
+        korean_font_prop = fm.FontProperties(fname=korean_font_path)
+        plt.rcParams['font.family'] = korean_font_prop.get_name()
         print(f"한글 폰트 설정 완료: {korean_font_path}")
     except Exception as e:
         print(f"폰트 설정 오류: {e}")
@@ -58,9 +61,11 @@ else:
         # Windows
         if platform.system() == 'Windows':
             plt.rcParams['font.family'] = 'Malgun Gothic'
+            korean_font_prop = fm.FontProperties(family='Malgun Gothic')
         # macOS
         elif platform.system() == 'Darwin':
             plt.rcParams['font.family'] = 'AppleGothic'
+            korean_font_prop = fm.FontProperties(family='AppleGothic')
         # Linux (Streamlit Cloud)
         else:
             # 나눔고딕 폰트 시도
@@ -69,15 +74,31 @@ else:
             
             if nanum_fonts:
                 plt.rcParams['font.family'] = nanum_fonts[0]
+                korean_font_prop = fm.FontProperties(family=nanum_fonts[0])
                 print(f"나눔 폰트 설정: {nanum_fonts[0]}")
             else:
                 plt.rcParams['font.family'] = 'DejaVu Sans'
+                korean_font_prop = fm.FontProperties(family='DejaVu Sans')
                 print("기본 폰트 사용: DejaVu Sans")
     except Exception as e:
         print(f"폰트 설정 실패: {e}")
         st.warning("한글 폰트를 설정할 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
 
 plt.rcParams['axes.unicode_minus'] = False
+
+# 전역 폰트 속성 설정 함수
+def set_korean_font(ax):
+    """matplotlib axes에 한글 폰트를 설정합니다."""
+    if korean_font_prop:
+        ax.set_xlabel(ax.get_xlabel(), fontproperties=korean_font_prop)
+        ax.set_ylabel(ax.get_ylabel(), fontproperties=korean_font_prop)
+        ax.set_title(ax.get_title(), fontproperties=korean_font_prop)
+        
+        # x축, y축 틱 레이블에 폰트 적용
+        for label in ax.get_xticklabels():
+            label.set_fontproperties(korean_font_prop)
+        for label in ax.get_yticklabels():
+            label.set_fontproperties(korean_font_prop)
 
 # CSS 스타일 추가
 st.markdown("""
@@ -535,29 +556,36 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                     colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
                     
                     ax.bar(sentiment_counts['감정'], sentiment_counts['리뷰 수'], color=colors)
-                    plt.title('감정별 리뷰 수', pad=20)
-                    plt.ylabel('리뷰 수')
+                    ax.set_title('감정별 리뷰 수', pad=20)
+                    ax.set_ylabel('리뷰 수')
                     for i, v in enumerate(sentiment_counts['리뷰 수']):
-                        plt.text(i, v + max(sentiment_counts['리뷰 수']) * 0.01, str(v), ha='center', va='bottom')
+                        ax.text(i, v + max(sentiment_counts['리뷰 수']) * 0.01, str(v), ha='center', va='bottom')
                     
                     # y축 범위 조정 (위쪽 여백 확보)
                     max_val = max(sentiment_counts['리뷰 수'])
                     ax.set_ylim(0, max_val * 1.15)
                     
+                    # 한글 폰트 적용
+                    set_korean_font(ax)
+                    
                     st.pyplot(fig)
                 
                 with col2:
                     # 감정 비율 파이 차트
-                    fig = plt.figure(figsize=(6, 4))
+                    fig, ax = plt.subplots(figsize=(6, 4))
                     
                     # 감정별 색상 매핑
                     emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
                     colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
                     
-                    plt.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
+                    ax.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
                            autopct='%1.1f%%', colors=colors, startangle=90)
-                    plt.title('감정 분포 비율', pad=20)
-                    plt.axis('equal')
+                    ax.set_title('감정 분포 비율', pad=20)
+                    ax.axis('equal')
+                    
+                    # 한글 폰트 적용
+                    set_korean_font(ax)
+                    
                     st.pyplot(fig)
                 
                 # 섹션 구분
@@ -595,9 +623,13 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                             if len(positive_category_analysis) > 0:
                                 fig, ax = plt.subplots(figsize=(8, 4))
                                 ax.bar(positive_category_analysis['카테고리'], positive_category_analysis['리뷰 수'], color='#28a745')
-                                plt.title('긍정 리뷰 카테고리별 언급 빈도')
-                                plt.xticks(rotation=45)
-                                plt.ylabel('리뷰 수')
+                                ax.set_title('긍정 리뷰 카테고리별 언급 빈도')
+                                ax.set_ylabel('리뷰 수')
+                                ax.tick_params(axis='x', rotation=45)
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
                                 plt.tight_layout()
                                 st.pyplot(fig)
                         else:
@@ -639,8 +671,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                                 ax.set_xticks(range(len(neutral_category_analysis)))
                                 ax.set_xticklabels(neutral_category_analysis['카테고리'], rotation=45)
                                 
-                                plt.title('중립 리뷰 카테고리별 언급 빈도')
-                                plt.ylabel('리뷰 수')
+                                ax.set_title('중립 리뷰 카테고리별 언급 빈도')
+                                ax.set_ylabel('리뷰 수')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
                                 plt.tight_layout()
                                 st.pyplot(fig)
                         else:
@@ -682,8 +718,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                                 ax.set_xticks(range(len(negative_category_analysis)))
                                 ax.set_xticklabels(negative_category_analysis['카테고리'], rotation=45)
                                 
-                                plt.title('부정 리뷰 카테고리별 언급 빈도')
-                                plt.ylabel('리뷰 수')
+                                ax.set_title('부정 리뷰 카테고리별 언급 빈도')
+                                ax.set_ylabel('리뷰 수')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
                                 plt.tight_layout()
                                 st.pyplot(fig)
                         else:
@@ -735,8 +775,12 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                 max_val = max(top_options['count'])
                 ax.set_ylim(0, max_val * 1.15)
                 
-                plt.title('상위 10개 옵션 판매량')
-                plt.ylabel('판매량')
+                ax.set_title('상위 10개 옵션 판매량')
+                ax.set_ylabel('판매량')
+                
+                # 한글 폰트 적용
+                set_korean_font(ax)
+                
                 plt.tight_layout()
                 st.pyplot(fig)
         
@@ -872,6 +916,10 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         
                         ax.set_ylabel('가격대비매출지수 (매출÷가격)')
                         ax.set_title(f'{selected_period} 가격대비 매출지수 상위 10개 상품')
+                        
+                        # 한글 폰트 적용
+                        set_korean_font(ax)
+                        
                         plt.tight_layout()
                         st.pyplot(fig)
                     else:
@@ -901,6 +949,10 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                         ax2.set_title('가격대별 평균 매출')
                         ax2.set_ylabel('평균 매출 (원)')
                         ax2.tick_params(axis='x', rotation=45)
+                        
+                        # 한글 폰트 적용
+                        set_korean_font(ax1)
+                        set_korean_font(ax2)
                         
                         plt.tight_layout()
                         st.pyplot(fig)
@@ -934,6 +986,10 @@ elif uploaded_file is None and st.session_state.analysis_option != "홈":
                             
                             ax.set_title('리뷰 점수 구간별 평균 매출')
                             ax.set_ylabel('평균 매출 (원)')
+                            
+                            # 한글 폰트 적용
+                            set_korean_font(ax)
+                            
                             plt.tight_layout()
                             st.pyplot(fig)
                     else:
@@ -1070,29 +1126,36 @@ else:
                         colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
                         
                         ax.bar(sentiment_counts['감정'], sentiment_counts['리뷰 수'], color=colors)
-                        plt.title('감정별 리뷰 수', pad=20)
-                        plt.ylabel('리뷰 수')
+                        ax.set_title('감정별 리뷰 수', pad=20)
+                        ax.set_ylabel('리뷰 수')
                         for i, v in enumerate(sentiment_counts['리뷰 수']):
-                            plt.text(i, v + max(sentiment_counts['리뷰 수']) * 0.01, str(v), ha='center', va='bottom')
+                            ax.text(i, v + max(sentiment_counts['리뷰 수']) * 0.01, str(v), ha='center', va='bottom')
                         
                         # y축 범위 조정 (위쪽 여백 확보)
                         max_val = max(sentiment_counts['리뷰 수'])
                         ax.set_ylim(0, max_val * 1.15)
                         
+                        # 한글 폰트 적용
+                        set_korean_font(ax)
+                        
                         st.pyplot(fig)
                     
                     with col2:
                         # 감정 비율 파이 차트
-                        fig = plt.figure(figsize=(6, 4))
+                        fig, ax = plt.subplots(figsize=(6, 4))
                         
                         # 감정별 색상 매핑
                         emotion_colors = {'긍정': '#28a745', '중립': '#ffa500', '부정': '#dc3545'}
                         colors = [emotion_colors[emotion] for emotion in sentiment_counts['감정']]
                         
-                        plt.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
+                        ax.pie(sentiment_counts['리뷰 수'], labels=sentiment_counts['감정'], 
                                autopct='%1.1f%%', colors=colors, startangle=90)
-                        plt.title('감정 분포 비율', pad=20)
-                        plt.axis('equal')
+                        ax.set_title('감정 분포 비율', pad=20)
+                        ax.axis('equal')
+                        
+                        # 한글 폰트 적용
+                        set_korean_font(ax)
+                        
                         st.pyplot(fig)
                     
                     # 섹션 구분
@@ -1130,9 +1193,13 @@ else:
                                 if len(positive_category_analysis) > 0:
                                     fig, ax = plt.subplots(figsize=(8, 4))
                                     ax.bar(positive_category_analysis['카테고리'], positive_category_analysis['리뷰 수'], color='#28a745')
-                                    plt.title('긍정 리뷰 카테고리별 언급 빈도')
-                                    plt.xticks(rotation=45)
-                                    plt.ylabel('리뷰 수')
+                                    ax.set_title('긍정 리뷰 카테고리별 언급 빈도')
+                                    ax.set_ylabel('리뷰 수')
+                                    ax.tick_params(axis='x', rotation=45)
+                                    
+                                    # 한글 폰트 적용
+                                    set_korean_font(ax)
+                                    
                                     plt.tight_layout()
                                     st.pyplot(fig)
                             else:
@@ -1174,8 +1241,12 @@ else:
                                     ax.set_xticks(range(len(neutral_category_analysis)))
                                     ax.set_xticklabels(neutral_category_analysis['카테고리'], rotation=45)
                                     
-                                    plt.title('중립 리뷰 카테고리별 언급 빈도')
-                                    plt.ylabel('리뷰 수')
+                                    ax.set_title('중립 리뷰 카테고리별 언급 빈도')
+                                    ax.set_ylabel('리뷰 수')
+                                    
+                                    # 한글 폰트 적용
+                                    set_korean_font(ax)
+                                    
                                     plt.tight_layout()
                                     st.pyplot(fig)
                             else:
@@ -1217,8 +1288,12 @@ else:
                                     ax.set_xticks(range(len(negative_category_analysis)))
                                     ax.set_xticklabels(negative_category_analysis['카테고리'], rotation=45)
                                     
-                                    plt.title('부정 리뷰 카테고리별 언급 빈도')
-                                    plt.ylabel('리뷰 수')
+                                    ax.set_title('부정 리뷰 카테고리별 언급 빈도')
+                                    ax.set_ylabel('리뷰 수')
+                                    
+                                    # 한글 폰트 적용
+                                    set_korean_font(ax)
+                                    
                                     plt.tight_layout()
                                     st.pyplot(fig)
                             else:
@@ -1273,8 +1348,12 @@ else:
                     max_val = max(top_options['count'])
                     ax.set_ylim(0, max_val * 1.15)
                     
-                    plt.title('상위 10개 옵션 판매량')
-                    plt.ylabel('판매량')
+                    ax.set_title('상위 10개 옵션 판매량')
+                    ax.set_ylabel('판매량')
+                    
+                    # 한글 폰트 적용
+                    set_korean_font(ax)
+                    
                     plt.tight_layout()
                     st.pyplot(fig)
             else:
@@ -1370,6 +1449,10 @@ else:
                             
                             ax.set_ylabel('매출 (원)')
                             ax.set_title(f'{selected_period} 매출 상위 10개 상품')
+                            
+                            # 한글 폰트 적용
+                            set_korean_font(ax)
+                            
                             plt.tight_layout()
                             st.pyplot(fig)
                         else:
