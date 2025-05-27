@@ -1,0 +1,4 @@
+default-jre
+default-jdk
+g++
+python3-dev 
