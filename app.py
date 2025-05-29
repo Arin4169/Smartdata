@@ -39,7 +39,12 @@ from utils import (
     analyze_price_segments,
     analyze_review_sales_correlation,
     calculate_sales_growth_pattern,
-    get_sales_summary_stats
+    get_sales_summary_stats,
+    analyze_review_efficiency,
+    analyze_hidden_gems,
+    analyze_underperforming_products,
+    analyze_review_needed_products,
+    analyze_value_products
 )
 
 # 한글 폰트 설정
@@ -408,7 +413,7 @@ if st.session_state.analysis_option == "홈":
     
     with col4:
         # 스토어 전체 판매 현황 카드
-        if st.button("📈 스토어 전체 판매 현황\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 가격대별 분석 및 리뷰-매출 상관관계", 
+        if st.button("📈 스토어 전체 판매 현황\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
             st.session_state.analysis_option = "스토어 전체 판매현황"
             st.rerun()
@@ -827,6 +832,36 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈"]:
             if sales_df is not None:
                 st.header("🏪 스토어 전체 판매현황 분석")
                 
+                # 분석 가이드 추가
+                with st.expander("📖 스토어 전체 판매현황 분석 가이드", expanded=False):
+                    st.markdown("""
+                    ### 🏪 스토어 전체 판매현황 분석이란?
+                    스토어의 **전체 상품 판매 데이터**를 다각도로 분석하여 매출 성과와 트렌드를 파악하는 종합 분석입니다.
+                    
+                    ### 📊 제공하는 4가지 분석
+                    
+                    #### 1. 🏆 매출 랭킹
+                    - 기간별 매출 상위 10개 상품 순위
+                    
+                    #### 2. ⚡ 가격대비 매출지수 분석
+                    **가격대비 매출지수 = 해당 기간 매출 ÷ 기본판매가격**
+                    - 상품 가격 대비 얼마나 효율적으로 매출을 올렸는지 측정
+                    - 높은 지수 = 가격 대비 매출 효율성이 좋음
+                    
+                    #### 3. 💰 가격대별 분석
+                    - **동적 가격대 설정**: 업로드된 데이터의 가격 분포를 분석하여 사분위수 기반으로 4개 구간 자동 설정
+                    - 저가(하위 25%), 중저가(25%-50%), 중가(50%-75%), 고가(상위 25%)
+                    - 각 가격대별 상품 수와 평균 매출 분석
+                    
+                    #### 4. 💡 리뷰-매출 인사이트
+                    **실용적인 리뷰-매출 분석:**
+                    - **리뷰 효율성**: 리뷰 1건당 매출이 높은 상품
+                    - **숨겨진 보석**: 매출은 낮지만 리뷰 점수가 높은 상품 (리뷰 점수 4.5 이상 & 매출 하위 50%에 속하는 상품)
+                    - **잠재력 미달**: 리뷰는 좋은데 매출이 예상보다 낮은 상품 (리뷰 점수 4.0 이상 & 매출 상위 75%에 못미치는 상품)
+                    - **리뷰 확보 필요**: 매출은 높은데 리뷰가 적은 상품 (매출 상위 50% & 리뷰수 하위 50%에 속하는 상품)
+                    - **가성비 인증**: 저렴한 가격 + 높은 리뷰 점수 상품 (가격 하위 50% & 리뷰 점수 4.0 이상)
+                    """)
+                
                 # 사용 가능한 기간 가져오기
                 available_periods = get_sales_periods(sales_df)
                 
@@ -880,7 +915,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈"]:
                     </style>
                     """, unsafe_allow_html=True)
                     
-                    tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "매출 효율성", "가격대별 분석", "리뷰-매출 상관관계"])
+                    tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "매출 효율성", "가격대별 분석", "리뷰-매출 인사이트"])
                     
                     with tab1:
                         st.subheader(f"🏆 {selected_period} 매출 상위 10개 상품")
@@ -933,7 +968,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈"]:
                             fig, ax = plt.subplots(figsize=(12, 6))
                             
                             bars = ax.bar(range(len(efficiency_data)), 
-                                         efficiency_data['매출효율성'], 
+                                         efficiency_data['가격대비매출지수'], 
                                          color='orange')
                             
                             ax.set_xticks(range(len(efficiency_data)))
@@ -942,11 +977,11 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈"]:
                                               rotation=45, ha='right')
                             
                             # 막대 위에 효율성 표시
-                            for i, v in enumerate(efficiency_data['매출효율성']):
-                                ax.text(i, v + max(efficiency_data['매출효율성']) * 0.01, 
+                            for i, v in enumerate(efficiency_data['가격대비매출지수']):
+                                ax.text(i, v + max(efficiency_data['가격대비매출지수']) * 0.01, 
                                        f'{v:.1f}', ha='center', va='bottom', fontsize=8)
                             
-                            ax.set_ylabel('매출효율성 (매출/가격)')
+                            ax.set_ylabel('가격대비매출지수 (매출/가격)')
                             ax.set_title(f'{selected_period} 가격 대비 매출 효율성')
                             
                             # 한글 폰트 적용
@@ -956,71 +991,232 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈"]:
                             st.pyplot(fig)
                         else:
                             st.info("매출 효율성 분석을 위한 데이터가 부족합니다.")
+                    
+                    with tab3:
+                        st.subheader(f"💰 가격대별 {selected_period} 매출 분석")
+                        price_segments = analyze_price_segments(sales_df, selected_period)
                         
-                        with tab3:
-                            st.subheader(f"💰 가격대별 {selected_period} 매출 분석")
-                            price_segments = analyze_price_segments(sales_df, selected_period)
+                        if not price_segments.empty:
+                            st.dataframe(price_segments, use_container_width=True, hide_index=True)
                             
-                            if not price_segments.empty:
-                                st.dataframe(price_segments, use_container_width=True, hide_index=True)
+                            # 가격대별 분석 시각화
+                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                            
+                            # 가격대별 상품수
+                            ax1.bar(price_segments['가격대'], price_segments['상품수'], color='lightblue')
+                            ax1.set_title('가격대별 상품 수')
+                            ax1.set_ylabel('상품 수')
+                            ax1.tick_params(axis='x', rotation=45)
+                            
+                            # 가격대별 평균매출
+                            ax2.bar(price_segments['가격대'], price_segments['평균매출'], color='lightgreen')
+                            ax2.set_title('가격대별 평균 매출')
+                            ax2.set_ylabel('평균 매출 (원)')
+                            ax2.tick_params(axis='x', rotation=45)
+                            
+                            # 한글 폰트 적용
+                            set_korean_font(ax1)
+                            set_korean_font(ax2)
+                            
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                        else:
+                            st.info("가격대별 분석을 위한 데이터가 부족합니다.")
+                    
+                    with tab4:
+                        st.subheader(f"💡 {selected_period} 리뷰-매출 인사이트")
+                        
+                        # 리뷰-매출 인사이트 탭 생성
+                        insight_tab1, insight_tab2, insight_tab3, insight_tab4, insight_tab5 = st.tabs([
+                            "⚡ 리뷰 효율성", "💎 숨겨진 보석", "📈 잠재력 미달", "🔥 리뷰 확보 필요", "💰 가성비 인증"
+                        ])
+                        
+                        with insight_tab1:
+                            st.markdown("### ⚡ 리뷰 효율성 랭킹")
+                            st.info("💡 **리뷰 1건당 매출이 가장 높은 상품은?** - 리뷰 대비 매출 효율성이 높은 상품을 찾아보세요!")
+                            
+                            efficiency_data = analyze_review_efficiency(sales_df, selected_period)
+                            
+                            if not efficiency_data.empty:
+                                st.dataframe(efficiency_data, use_container_width=True, hide_index=True)
                                 
-                                # 가격대별 분석 시각화
-                                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                                # 리뷰 효율성 시각화
+                                fig, ax = plt.subplots(figsize=(12, 6))
                                 
-                                # 가격대별 상품수
-                                ax1.bar(price_segments['가격대'], price_segments['상품수'], color='lightblue')
-                                ax1.set_title('가격대별 상품 수')
-                                ax1.set_ylabel('상품 수')
-                                ax1.tick_params(axis='x', rotation=45)
+                                bars = ax.bar(range(len(efficiency_data)), 
+                                             efficiency_data['리뷰1건당매출'], 
+                                             color='lightcoral')
                                 
-                                # 가격대별 평균매출
-                                ax2.bar(price_segments['가격대'], price_segments['평균매출'], color='lightgreen')
-                                ax2.set_title('가격대별 평균 매출')
-                                ax2.set_ylabel('평균 매출 (원)')
-                                ax2.tick_params(axis='x', rotation=45)
+                                ax.set_xticks(range(len(efficiency_data)))
+                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                                   for name in efficiency_data['상품명']], 
+                                                  rotation=45, ha='right')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(efficiency_data['리뷰1건당매출']):
+                                    ax.text(i, v + max(efficiency_data['리뷰1건당매출']) * 0.01, 
+                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
+                                
+                                ax.set_title('리뷰 1건당 매출 상위 10개 상품')
+                                ax.set_ylabel('리뷰 1건당 매출 (원)')
                                 
                                 # 한글 폰트 적용
-                                set_korean_font(ax1)
-                                set_korean_font(ax2)
+                                set_korean_font(ax)
                                 
                                 plt.tight_layout()
                                 st.pyplot(fig)
                             else:
-                                st.info("가격대별 분석을 위한 데이터가 부족합니다.")
+                                st.info("리뷰 효율성 분석을 위한 데이터가 부족합니다.")
                         
-                        with tab4:
-                            st.subheader(f"⭐ 리뷰 점수와 {selected_period} 매출 상관관계")
-                            correlation, review_analysis = analyze_review_sales_correlation(sales_df, selected_period)
+                        with insight_tab2:
+                            st.markdown("### 💎 숨겨진 보석 상품")
+                            st.info("💡 **매출은 낮은데 리뷰 점수가 높은 상품은?** - 마케팅 강화로 매출을 늘릴 수 있는 상품을 찾아보세요!")
                             
-                            if correlation is not None:
-                                st.info(f"**상관계수: {correlation:.3f}**")
+                            hidden_gems_data = analyze_hidden_gems(sales_df, selected_period)
+                            
+                            if not hidden_gems_data.empty:
+                                st.dataframe(hidden_gems_data, use_container_width=True, hide_index=True)
                                 
-                                if not review_analysis.empty:
-                                    st.dataframe(review_analysis, use_container_width=True, hide_index=True)
-                                    
-                                    # 리뷰 점수별 평균 매출 시각화
-                                    fig, ax = plt.subplots(figsize=(10, 6))
-                                    
-                                    bars = ax.bar(review_analysis['리뷰점수구간'], 
-                                                 review_analysis['평균매출'], 
-                                                 color='gold')
-                                    
-                                    # 막대 위에 값 표시
-                                    for i, v in enumerate(review_analysis['평균매출']):
-                                        ax.text(i, v + max(review_analysis['평균매출']) * 0.01, 
-                                               f'{v:,.0f}', ha='center', va='bottom')
-                                    
-                                    ax.set_title('리뷰 점수 구간별 평균 매출')
-                                    ax.set_ylabel('평균 매출 (원)')
-                                    
-                                    # 한글 폰트 적용
-                                    set_korean_font(ax)
-                                    
-                                    plt.tight_layout()
-                                    st.pyplot(fig)
+                                # 숨겨진 보석 시각화
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                bars = ax.bar(range(len(hidden_gems_data)), 
+                                             hidden_gems_data['리뷰점수'], 
+                                             color='mediumseagreen')
+                                
+                                ax.set_xticks(range(len(hidden_gems_data)))
+                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                                   for name in hidden_gems_data['상품명']], 
+                                                  rotation=45, ha='right')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(hidden_gems_data['리뷰점수']):
+                                    ax.text(i, v + 0.05, f'{v:.1f}', ha='center', va='bottom', fontsize=8)
+                                
+                                ax.set_title('숨겨진 보석 상품 (높은 리뷰점수 + 낮은 매출)')
+                                ax.set_ylabel('리뷰 점수')
+                                ax.set_ylim(0, 5.5)
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
+                                plt.tight_layout()
+                                st.pyplot(fig)
                             else:
-                                st.info("리뷰-매출 상관관계 분석을 위한 데이터가 부족합니다.")
-                    st.warning("스토어 전체 판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
+                                st.info("숨겨진 보석 상품 분석을 위한 데이터가 부족합니다.")
+                        
+                        with insight_tab3:
+                            st.markdown("### 📈 잠재력 미달 상품")
+                            st.info("💡 **리뷰는 좋은데 매출이 예상보다 낮은 상품은?** - 프로모션이나 노출 개선이 필요한 상품을 찾아보세요!")
+                            
+                            underperforming_data = analyze_underperforming_products(sales_df, selected_period)
+                            
+                            if not underperforming_data.empty:
+                                st.dataframe(underperforming_data, use_container_width=True, hide_index=True)
+                                
+                                # 잠재력 미달 시각화
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                bars = ax.bar(range(len(underperforming_data)), 
+                                             underperforming_data[f'{selected_period} 매출'], 
+                                             color='orange')
+                                
+                                ax.set_xticks(range(len(underperforming_data)))
+                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                                   for name in underperforming_data['상품명']], 
+                                                  rotation=45, ha='right')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(underperforming_data[f'{selected_period} 매출']):
+                                    ax.text(i, v + max(underperforming_data[f'{selected_period} 매출']) * 0.01, 
+                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
+                                
+                                ax.set_title('잠재력 미달 상품 (좋은 리뷰 + 저조한 매출)')
+                                ax.set_ylabel('매출 (원)')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.info("잠재력 미달 상품 분석을 위한 데이터가 부족합니다.")
+                        
+                        with insight_tab4:
+                            st.markdown("### 🔥 리뷰 확보 필요 상품")
+                            st.info("💡 **매출은 높은데 리뷰가 적은 상품은?** - 리뷰 수집 캠페인이 필요한 상품을 찾아보세요!")
+                            
+                            review_needed_data = analyze_review_needed_products(sales_df, selected_period)
+                            
+                            if not review_needed_data.empty:
+                                st.dataframe(review_needed_data, use_container_width=True, hide_index=True)
+                                
+                                # 리뷰 확보 필요 시각화
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                bars = ax.bar(range(len(review_needed_data)), 
+                                             review_needed_data['매출대비리뷰부족도'], 
+                                             color='tomato')
+                                
+                                ax.set_xticks(range(len(review_needed_data)))
+                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                                   for name in review_needed_data['상품명']], 
+                                                  rotation=45, ha='right')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(review_needed_data['매출대비리뷰부족도']):
+                                    ax.text(i, v + max(review_needed_data['매출대비리뷰부족도']) * 0.01, 
+                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
+                                
+                                ax.set_title('리뷰 확보 필요 상품 (높은 매출 + 적은 리뷰)')
+                                ax.set_ylabel('매출대비 리뷰 부족도')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.info("리뷰 확보 필요 상품 분석을 위한 데이터가 부족합니다.")
+                        
+                        with insight_tab5:
+                            st.markdown("### 💰 가성비 인증 상품")
+                            st.info("💡 **저렴한 가격 + 높은 리뷰 점수 상품은?** - 가성비 마케팅에 활용할 수 있는 상품을 찾아보세요!")
+                            
+                            value_products_data = analyze_value_products(sales_df, selected_period)
+                            
+                            if not value_products_data.empty:
+                                st.dataframe(value_products_data, use_container_width=True, hide_index=True)
+                                
+                                # 가성비 인증 시각화
+                                fig, ax = plt.subplots(figsize=(12, 6))
+                                
+                                bars = ax.bar(range(len(value_products_data)), 
+                                             value_products_data['가성비점수'], 
+                                             color='gold')
+                                
+                                ax.set_xticks(range(len(value_products_data)))
+                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
+                                                   for name in value_products_data['상품명']], 
+                                                  rotation=45, ha='right')
+                                
+                                # 막대 위에 값 표시
+                                for i, v in enumerate(value_products_data['가성비점수']):
+                                    ax.text(i, v + max(value_products_data['가성비점수']) * 0.01, 
+                                           f'{v:.1f}', ha='center', va='bottom', fontsize=8)
+                                
+                                ax.set_title('가성비 인증 상품 (저렴한 가격 + 높은 리뷰점수)')
+                                ax.set_ylabel('가성비 점수')
+                                
+                                # 한글 폰트 적용
+                                set_korean_font(ax)
+                                
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.info("가성비 인증 상품 분석을 위한 데이터가 부족합니다.")
+            else:
+                st.warning("스토어 전체 판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
             
     except Exception as e:
         st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")

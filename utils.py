@@ -445,7 +445,7 @@ def analyze_sales_efficiency(df, period='1년'):
 
 
 def analyze_price_segments(df, period='1년'):
-    """가격대별 매출 분석"""
+    """가격대별 매출 분석 - 동적 가격대 설정"""
     sales_col = f'{period}매출'
     price_col = '기본판매가격'
     
@@ -463,9 +463,26 @@ def analyze_price_segments(df, period='1년'):
     if filtered_df.empty:
         return pd.DataFrame()
     
-    # 가격대별 구간 설정
-    price_bins = [0, 10000, 30000, 50000, 100000, float('inf')]
-    price_labels = ['1만원 이하', '1-3만원', '3-5만원', '5-10만원', '10만원 이상']
+    # 가격이 0보다 큰 상품들만 필터링
+    filtered_df = filtered_df[filtered_df[price_col] > 0]
+    
+    if len(filtered_df) < 4:  # 사분위수 계산을 위해 최소 4개 상품 필요
+        return pd.DataFrame()
+    
+    # 동적 가격대 설정 (사분위수 기반)
+    price_data = filtered_df[price_col]
+    q1 = price_data.quantile(0.25)
+    q2 = price_data.quantile(0.50)  # 중간값
+    q3 = price_data.quantile(0.75)
+    
+    # 가격대 구간 및 라벨 설정
+    price_bins = [0, q1, q2, q3, float('inf')]
+    price_labels = [
+        f'저가 (~{q1:,.0f}원)',
+        f'중저가 ({q1:,.0f}~{q2:,.0f}원)',
+        f'중가 ({q2:,.0f}~{q3:,.0f}원)',
+        f'고가 ({q3:,.0f}원~)'
+    ]
     
     filtered_df['가격대'] = pd.cut(filtered_df[price_col], bins=price_bins, labels=price_labels, right=False)
     
@@ -597,3 +614,263 @@ def get_sales_summary_stats(df, period='1년'):
     }
     
     return summary
+
+# 리뷰-매출 인사이트 분석 함수들
+def analyze_review_efficiency(df, period='1년'):
+    """리뷰 효율성 분석 - 리뷰 1건당 매출이 높은 상품"""
+    sales_col = f'{period}매출'
+    review_count_col = '리뷰수'
+    
+    required_cols = [sales_col, review_count_col]
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[(filtered_df[sales_col] > 0) & (filtered_df[review_count_col] > 0)]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 리뷰 1건당 매출 계산
+    filtered_df['리뷰1건당매출'] = (filtered_df[sales_col] / filtered_df[review_count_col]).round(0)
+    
+    # 상위 10개 리뷰 효율성 상품
+    top_efficiency = filtered_df.nlargest(10, '리뷰1건당매출')
+    
+    result = pd.DataFrame({
+        '순위': range(1, len(top_efficiency) + 1),
+        '상품명': top_efficiency['상품명'].values,
+        f'{period} 매출': top_efficiency[sales_col].values,
+        '리뷰수': top_efficiency[review_count_col].values,
+        '리뷰1건당매출': top_efficiency['리뷰1건당매출'].astype(int).values
+    })
+    
+    return result
+
+
+def analyze_hidden_gems(df, period='1년'):
+    """숨겨진 보석 상품 - 매출은 낮은데 리뷰 점수가 높은 상품"""
+    sales_col = f'{period}매출'
+    review_score_col = '리뷰점수'
+    
+    required_cols = [sales_col, review_score_col]
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[filtered_df[sales_col] > 0]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 매출 하위 50% 기준점 계산
+    sales_median = filtered_df[sales_col].median()
+    
+    # 리뷰 점수 4.5 이상 & 매출 중간값 이하인 상품
+    hidden_gems = filtered_df[
+        (filtered_df[review_score_col] >= 4.5) & 
+        (filtered_df[sales_col] <= sales_median)
+    ].copy()
+    
+    if hidden_gems.empty:
+        return pd.DataFrame()
+    
+    # 리뷰 점수 순으로 정렬
+    hidden_gems = hidden_gems.sort_values(review_score_col, ascending=False).head(10)
+    
+    result = pd.DataFrame({
+        '순위': range(1, len(hidden_gems) + 1),
+        '상품명': hidden_gems['상품명'].values,
+        f'{period} 매출': hidden_gems[sales_col].values,
+        '리뷰점수': hidden_gems[review_score_col].values
+    })
+    
+    # 기본판매가격이 있으면 추가
+    if '기본판매가격' in hidden_gems.columns:
+        result['기본판매가격'] = hidden_gems['기본판매가격'].values
+    
+    return result
+
+
+def analyze_underperforming_products(df, period='1년'):
+    """잠재력 미달 상품 - 리뷰는 좋은데 매출이 예상보다 낮은 상품"""
+    sales_col = f'{period}매출'
+    review_score_col = '리뷰점수'
+    review_count_col = '리뷰수'
+    
+    required_cols = [sales_col, review_score_col]
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[filtered_df[sales_col] > 0]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 리뷰 점수 4.0 이상인 상품들만
+    good_review_products = filtered_df[filtered_df[review_score_col] >= 4.0].copy()
+    
+    if len(good_review_products) == 0:
+        return pd.DataFrame()
+    
+    # 매출 상위 75% 기준점 계산
+    sales_75th = filtered_df[sales_col].quantile(0.75)
+    
+    # 리뷰는 좋은데 매출이 상위 75%에 못미치는 상품
+    underperforming = good_review_products[
+        good_review_products[sales_col] < sales_75th
+    ].copy()
+    
+    if underperforming.empty:
+        return pd.DataFrame()
+    
+    # 리뷰 점수가 높은 순으로 정렬
+    underperforming = underperforming.sort_values(review_score_col, ascending=False).head(10)
+    
+    result_data = {
+        '순위': range(1, len(underperforming) + 1),
+        '상품명': underperforming['상품명'].values,
+        f'{period} 매출': underperforming[sales_col].values,
+        '리뷰점수': underperforming[review_score_col].values
+    }
+    
+    # 리뷰수가 있으면 추가
+    if review_count_col in underperforming.columns:
+        result_data['리뷰수'] = underperforming[review_count_col].values
+    
+    result = pd.DataFrame(result_data)
+    
+    return result
+
+
+def analyze_review_needed_products(df, period='1년'):
+    """리뷰 확보 필요 상품 - 매출은 높은데 리뷰가 적은 상품"""
+    sales_col = f'{period}매출'
+    review_count_col = '리뷰수'
+    
+    required_cols = [sales_col, review_count_col]
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[filtered_df[sales_col] > 0]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 매출 상위 50% 기준점 계산
+    sales_median = filtered_df[sales_col].median()
+    
+    # 리뷰수 하위 50% 기준점 계산
+    review_median = filtered_df[review_count_col].median()
+    
+    # 매출은 중간값 이상 & 리뷰수는 중간값 이하인 상품
+    review_needed = filtered_df[
+        (filtered_df[sales_col] >= sales_median) & 
+        (filtered_df[review_count_col] <= review_median)
+    ].copy()
+    
+    if review_needed.empty:
+        return pd.DataFrame()
+    
+    # 매출 대비 리뷰 부족도 계산 (매출/리뷰수)
+    review_needed['매출대비리뷰부족도'] = review_needed[sales_col] / (review_needed[review_count_col] + 1)
+    
+    # 리뷰 부족도가 높은 순으로 정렬
+    review_needed = review_needed.sort_values('매출대비리뷰부족도', ascending=False).head(10)
+    
+    result = pd.DataFrame({
+        '순위': range(1, len(review_needed) + 1),
+        '상품명': review_needed['상품명'].values,
+        f'{period} 매출': review_needed[sales_col].values,
+        '리뷰수': review_needed[review_count_col].values,
+        '매출대비리뷰부족도': review_needed['매출대비리뷰부족도'].values
+    })
+    
+    return result
+
+
+def analyze_value_products(df, period='1년'):
+    """가성비 인증 상품 - 저렴한 가격 + 높은 리뷰 점수"""
+    sales_col = f'{period}매출'
+    review_score_col = '리뷰점수'
+    price_col = '기본판매가격'
+    
+    required_cols = [sales_col, review_score_col, price_col]
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # 필요한 데이터가 있는 상품들만 필터링
+    filtered_df = df.dropna(subset=required_cols).copy()
+    filtered_df = filtered_df[(filtered_df[sales_col] > 0) & (filtered_df[price_col] > 0)]
+    
+    # "토탈", "TOTAL", "합계" 등의 항목 제외
+    total_keywords = ['토탈', 'TOTAL', 'Total', '합계', '전체', '총계']
+    for keyword in total_keywords:
+        filtered_df = filtered_df[~filtered_df['상품명'].str.contains(keyword, na=False, case=False)]
+    
+    if filtered_df.empty:
+        return pd.DataFrame()
+    
+    # 가격 하위 50% 기준점 계산
+    price_median = filtered_df[price_col].median()
+    
+    # 가격 중간값 이하 & 리뷰 점수 4.0 이상인 상품
+    value_products = filtered_df[
+        (filtered_df[price_col] <= price_median) & 
+        (filtered_df[review_score_col] >= 4.0)
+    ].copy()
+    
+    if value_products.empty:
+        return pd.DataFrame()
+    
+    # 가성비 점수 계산 (리뷰 점수 / 가격의 정규화 점수)
+    # 가격을 0-1로 정규화한 후 (1 - 정규화가격) * 리뷰점수로 계산
+    min_price = value_products[price_col].min()
+    max_price = value_products[price_col].max()
+    
+    if max_price > min_price:
+        value_products['정규화가격'] = (value_products[price_col] - min_price) / (max_price - min_price)
+    else:
+        value_products['정규화가격'] = 0
+    
+    value_products['가성비점수'] = (1 - value_products['정규화가격']) * value_products[review_score_col]
+    
+    # 가성비 점수가 높은 순으로 정렬
+    value_products = value_products.sort_values('가성비점수', ascending=False).head(10)
+    
+    result = pd.DataFrame({
+        '순위': range(1, len(value_products) + 1),
+        '상품명': value_products['상품명'].values,
+        '기본판매가격': value_products[price_col].values,
+        '리뷰점수': value_products[review_score_col].values,
+        '가성비점수': value_products['가성비점수'].values,
+        f'{period} 매출': value_products[sales_col].values
+    })
+    
+    return result
