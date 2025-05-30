@@ -220,12 +220,6 @@ st.markdown("""
         box-shadow: none !important;
         transform: none !important;
     }
-    
-    /* 카드 제목 파란색 스타일링 */
-    .stButton > button::first-line {
-        color: #1E3A8A !important;
-        font-weight: 700 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -353,46 +347,33 @@ def check_option_columns(df):
 
 # 사이드바 - 파일 업로드 및 메뉴
 with st.sidebar:
-    st.header("📁 데이터 업로드")
-    
+    st.header("데이터 업로드")
     uploaded_file = st.file_uploader("스마트 스토어 데이터 파일", type=["xlsx", "csv"], help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요.")
     
-    # 파일 업로드 안내
-    with st.expander("📋 업로드 파일 안내"):
-        st.markdown("""
-        <div style="text-align: left;">
-        
-        • **리뷰 분석 파일**: 리뷰 내용 컬럼을 포함한 파일  
-        • **옵션 비율 파일**: 옵션 정보와 판매량/수량 컬럼을 포함한 파일  
-        • **판매 현황 파일**: 기타 판매 관련 파일
+    # 파일 타입 설명
+    with st.expander("파일 타입 설명"):
+        st.info("""
+        • 리뷰 분석 파일: 리뷰 내용 컬럼을 포함한 파일
+        • 옵션 비율 파일: 옵션 정보와 판매량/수량 컬럼을 포함한 파일
+        • 판매 현황 파일: 기타 판매 관련 파일
         
         파일 유형은 자동으로 감지됩니다.
-        
-        </div>
-        """, unsafe_allow_html=True)
+        """)
     
-    st.header("📊 분석 메뉴")
+    st.header("분석 메뉴")
     # 세션 상태 초기화
     if 'analysis_option' not in st.session_state:
         st.session_state.analysis_option = "홈"
     
     analysis_option = st.radio(
         "분석 유형 선택",
-        ["홈", "데이터 분석 사용안내", "리뷰분석: 워드 클라우드", "리뷰분석: 감정분석", "옵션분석", "스토어전체판매현황 분석"],
-        index=["홈", "데이터 분석 사용안내", "리뷰분석: 워드 클라우드", "리뷰분석: 감정분석", "옵션분석", "스토어전체판매현황 분석"].index(st.session_state.analysis_option) if st.session_state.analysis_option in ["홈", "데이터 분석 사용안내", "리뷰분석: 워드 클라우드", "리뷰분석: 감정분석", "옵션분석", "스토어전체판매현황 분석"] else 0
+        ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"],
+        index=["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.analysis_option) if st.session_state.analysis_option in ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"] else 0
     )
     
     # 라디오 버튼 선택이 변경되면 세션 상태 업데이트
     if analysis_option != st.session_state.analysis_option:
         st.session_state.analysis_option = analysis_option
-
-# 호환성을 위한 메뉴 매핑
-option_mapping = {
-    "리뷰분석: 워드 클라우드": "리뷰 분석 - 워드클라우드",
-    "리뷰분석: 감정분석": "리뷰 분석 - 감정분석",
-    "옵션분석": "옵션 분석",
-    "스토어전체판매현황 분석": "스토어전체판매현황 분석"
-}
 
 # 데이터 저장 변수
 review_df = None
@@ -401,9 +382,6 @@ sales_df = None
 
 # 메인 화면
 if st.session_state.analysis_option == "홈":
-    # 상단 알림 추가
-    st.info("📖 **분석을 시작하기 전에 '데이터 분석 사용안내'를 먼저 읽어보세요!**")
-    
     st.markdown('<div class="container">', unsafe_allow_html=True)
     
     # 첫 번째 행
@@ -413,14 +391,14 @@ if st.session_state.analysis_option == "홈":
         # 리뷰 워드클라우드 분석 카드
         if st.button("📊 리뷰 워드클라우드 분석\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
                      key="card1", use_container_width=True):
-            st.session_state.analysis_option = "리뷰분석: 워드 클라우드"
+            st.session_state.analysis_option = "리뷰 분석 - 워드클라우드"
             st.rerun()
     
     with col2:
         # 리뷰 감정 분석 카드
         if st.button("😊 리뷰 감정 분석\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
                      key="card2", use_container_width=True):
-            st.session_state.analysis_option = "리뷰분석: 감정분석"
+            st.session_state.analysis_option = "리뷰 분석 - 감정분석"
             st.rerun()
     
     # 두 번째 행
@@ -430,14 +408,14 @@ if st.session_state.analysis_option == "홈":
         # 옵션 분석 카드
         if st.button("🎯 옵션 분석\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
                      key="card3", use_container_width=True):
-            st.session_state.analysis_option = "옵션분석"
+            st.session_state.analysis_option = "옵션 분석"
             st.rerun()
     
     with col4:
-        # 스토어전체판매현황 분석 카드
-        if st.button("📈 스토어전체판매현황 분석\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
+        # 스토어 전체 판매 현황 카드
+        if st.button("📈 스토어 전체 판매 현황\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
-            st.session_state.analysis_option = "스토어전체판매현황 분석"
+            st.session_state.analysis_option = "스토어 전체 판매현황"
             st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
@@ -447,6 +425,7 @@ if st.session_state.analysis_option == "홈":
     <div class="start-section">
         <h2 style="color: #1E3A8A;">시작하기</h2>
         <p style="color: #6B7280;">
+            💡 <strong>'데이터 분석 사용안내'를 먼저 확인해 주세요.</strong><br><br>
             👆 위의 카드를 클릭하여 원하는 분석을 시작하거나<br>
             👈 왼쪽 사이드바에서 파일을 업로드하고 분석 메뉴를 선택하세요.<br>
             파일 없이도 샘플 데이터로 각 분석 기능을 체험할 수 있습니다.
@@ -468,39 +447,7 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         1. **Chrome 웹스토어 접속**: [Smart Data 확장 프로그램](https://chromewebstore.google.com/detail/smart-data/mamdlaceocpnoajindmlhppbmjckmjcl?hl=ko)
         2. **'Chrome에 추가' 버튼 클릭**
         3. **'확장 프로그램 추가' 확인**
-        """)
         
-        # Smart Data 확장 프로그램 인터페이스 이미지 표시
-        try:
-            # 여러 경로 시도
-            import os
-            current_dir = os.getcwd()
-            image_path = "data/image1.png"
-            
-            # 파일 존재 확인
-            if os.path.exists(image_path):
-                # 이미지 크기를 적당하게 조절
-                st.image(image_path, caption="Smart Data 확장 프로그램 인터페이스", width=500)
-            else:
-                # 다른 경로들 시도
-                alternative_paths = ["./data/image1.png", "data\\image1.png", "./data\\image1.png"]
-                image_found = False
-                
-                for alt_path in alternative_paths:
-                    if os.path.exists(alt_path):
-                        st.image(alt_path, caption="Smart Data 확장 프로그램 인터페이스", width=500)
-                        image_found = True
-                        break
-                
-                if not image_found:
-                    st.warning(f"⚠️ 이미지 파일을 찾을 수 없습니다. 현재 경로: {current_dir}")
-                    st.info("💡 Smart Data 확장 프로그램을 설치하면 위와 같은 인터페이스를 확인할 수 있습니다.")
-                    
-        except Exception as e:
-            st.error(f"이미지 로드 중 오류: {str(e)}")
-            st.info("💡 Smart Data 확장 프로그램을 설치하면 위와 같은 인터페이스를 확인할 수 있습니다.")
-        
-        st.markdown("""
         #### 📊 데이터 다운로드 방법
         1. **스마트 스토어 상품 페이지 접속**
         2. **Smart Data 확장 프로그램 아이콘 클릭**
@@ -508,6 +455,16 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
            - 📝 **reviewcontents**: 리뷰 분석용
            - 📊 **옵션비율**: 옵션 분석용  
            - 💰 **스토어전체판매현황**: 매출 분석용
+        """)
+        
+        # Smart Data 확장 프로그램 인터페이스 이미지 표시
+        try:
+            st.image("data/image1.png", caption="Smart Data 확장 프로그램 인터페이스", width=500)
+        except Exception as e:
+            st.warning("⚠️ 이미지 파일을 찾을 수 없습니다.")
+            st.info("💡 Smart Data 확장 프로그램을 설치하면 위와 같은 인터페이스를 확인할 수 있습니다.")
+        
+        st.markdown("""
         
         #### ⚠️ 중요사항
         - **데이터 다운로드 시 해당 페이지를 벗어나지 마세요.**
@@ -517,7 +474,7 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
     with st.expander("**2단계: 데이터 파일 업로드**"):
         st.markdown("""
         ### 📁 파일 업로드 방법
-        1. **좌측 사이드바**의 '📁 데이터 업로드' 섹션으로 이동
+        1. **좌측 사이드바**의 '데이터 업로드' 섹션으로 이동
         2. **'스마트 스토어 데이터 파일' 업로드 버튼** 클릭
         3. **다운로드받은 파일 선택** (xlsx, csv 지원)
         
@@ -535,22 +492,22 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         st.markdown("""
         ### 📊 분석 메뉴 가이드
         
-        #### 📝 리뷰분석: 워드 클라우드
+        #### 📝 리뷰 분석 - 워드클라우드
         - **목적**: 고객 리뷰에서 자주 언급되는 키워드 파악
         - **결과**: 워드클라우드 시각화, 상위 20개 키워드 차트
         - **활용**: 고객 관심사 파악, 마케팅 포인트 도출
         
-        #### 😊 리뷰분석: 감정분석  
+        #### 😊 리뷰 분석 - 감정분석  
         - **목적**: 리뷰의 감정(긍정/중립/부정) 및 세부 카테고리 분석
         - **결과**: 감정 분포, 카테고리별 상세 분석
         - **활용**: 고객 만족도 측정, 개선점 발견
         
-        #### 🎯 옵션분석
+        #### 🎯 옵션 분석
         - **목적**: 상품 옵션별 판매량 분석  
         - **결과**: 인기 옵션 Top 10, 판매량 시각화
         - **활용**: 재고 관리, 인기 옵션 파악
         
-        #### 📈 스토어전체판매현황 분석
+        #### 📈 스토어 전체 판매현황
         - **목적**: 종합적인 매출 성과 분석
         - **결과**: 매출 랭킹, 효율성 분석, 가격대별 분석, 리뷰-매출 인사이트
         - **활용**: 매출 전략 수립, 상품 포트폴리오 최적화
@@ -574,37 +531,6 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         - **정기적 분석**: 월 1회 이상 정기적으로 데이터 분석 수행
         - **트렌드 파악**: 시간에 따른 고객 반응 변화 모니터링
         - **전략 조정**: 분석 결과에 따른 마케팅 전략 지속적 개선
-        """)
-    
-    # 리뷰-매출 인사이트 선택 기준
-    with st.expander("**📊 리뷰-매출 인사이트 선택 기준**", expanded=True):
-        st.markdown("""
-        ### 💡 각 인사이트별 선택 기준
-        
-        #### ⚡ 리뷰 효율성
-        - **선택 기준**: 리뷰 1건당 매출이 높은 상품 상위 10개
-        - **계산식**: 해당 기간 매출 ÷ 리뷰 수
-        - **활용법**: 리뷰 마케팅 ROI가 높은 상품 파악
-        
-        #### 💎 숨겨진 보석
-        - **선택 기준**: 리뷰 점수 4.5 이상 + 매출 하위 50%에 속하는 상품
-        - **목적**: 품질은 좋지만 매출이 낮은 상품 발굴
-        - **활용법**: 마케팅 강화로 매출 증대 가능한 상품
-        
-        #### 📈 잠재력 미달
-        - **선택 기준**: 리뷰 점수 4.0 이상 + 매출이 상위 75%에 못 미치는 상품
-        - **목적**: 좋은 평가 대비 매출이 아쉬운 상품
-        - **활용법**: 프로모션이나 노출 개선 필요 상품
-        
-        #### 🔥 리뷰 확보 필요
-        - **선택 기준**: 매출 상위 50% + 리뷰 수 하위 50%에 속하는 상품  
-        - **목적**: 매출은 높지만 리뷰가 부족한 상품
-        - **활용법**: 리뷰 수집 캠페인 대상 상품
-        
-        #### 💰 가성비 인증
-        - **선택 기준**: 가격 하위 50% + 리뷰 점수 4.0 이상인 상품
-        - **목적**: 저렴하면서도 좋은 평가를 받는 상품
-        - **활용법**: 가성비 마케팅 포인트로 활용
         """)
     
     # 도움말 섹션
@@ -640,34 +566,23 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         - 필수 컬럼이 존재하는지 확인
         - 샘플 데이터로 먼저 테스트
         """)
-    
-    # 연락처 정보
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 10px; margin-top: 20px;">
-        <h4>📞 추가 지움말이 필요하시면 언제든 문의하세요!</h4>
-        <p>더 나은 서비스 제공을 위해 지속적으로 개선하고 있습니다.</p>
-    </div>
-    """, unsafe_allow_html=True)
 
 elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
     # 파일이 업로드되지 않았지만 분석이 선택된 경우 샘플 데이터 사용
     try:
         # 샘플 데이터 로드
-        if st.session_state.analysis_option in ["리뷰분석: 워드 클라우드", "리뷰분석: 감정분석"]:
+        if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
             review_df = pd.read_excel("data/reviewcontents (4).xlsx")
             review_df = check_review_columns(review_df)
-        elif st.session_state.analysis_option == "스토어전체판매현황 분석":
+        elif st.session_state.analysis_option == "스토어 전체 판매현황":
             sales_df = pd.read_excel("data/스토어전체판매현황 (2).xlsx")
         
-        if st.session_state.analysis_option == "옵션분석":
+        if st.session_state.analysis_option == "옵션 분석":
             option_df = pd.read_excel("data/옵션비율 (2).xlsx")
             option_df = check_option_columns(option_df)
         
-        # 분석 실행 (호환성 매핑 적용)
-        actual_analysis_option = option_mapping.get(st.session_state.analysis_option, st.session_state.analysis_option)
-        
-        if actual_analysis_option == "리뷰 분석 - 워드클라우드":
+        # 분석 실행
+        if st.session_state.analysis_option == "리뷰 분석 - 워드클라우드":
             st.header("📊 리뷰 워드클라우드 분석")
             
             # 분석 가이드 추가
@@ -737,7 +652,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                         fig2, ax = plt.subplots(figsize=(8, 8))
                         bars = ax.barh(top_words_df['단어'], top_words_df['언급 횟수'], color='steelblue')
                         
-                        # 리뷰수 표시
+                        # 리뷰 수 표시
                         for i, bar in enumerate(bars):
                             width = bar.get_width()
                             ax.text(width + width*0.02, bar.get_y() + bar.get_height()/2, 
@@ -764,7 +679,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                 else:
                     st.warning("분석할 리뷰 데이터가 충분하지 않습니다.")
         
-        elif actual_analysis_option == "리뷰 분석 - 감정분석":
+        elif st.session_state.analysis_option == "리뷰 분석 - 감정분석":
             st.header("😊 리뷰 감정분석")
             
             # 분석 가이드 추가
@@ -977,7 +892,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                         else:
                             st.info("부정 리뷰에서 분석 가능한 카테고리를 찾을 수 없습니다.")
         
-        elif actual_analysis_option == "옵션 분석":
+        elif st.session_state.analysis_option == "옵션 분석":
             st.header("🎯 옵션 분석")
             
             # 분석 가이드 추가
@@ -1048,14 +963,14 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                 plt.tight_layout()
                 st.pyplot(fig)
         
-        elif st.session_state.analysis_option == "스토어전체판매현황 분석":
+        elif st.session_state.analysis_option == "스토어 전체 판매현황":
             if sales_df is not None:
-                st.header("🏪 스토어전체판매현황 분석")
+                st.header("🏪 스토어 전체 판매현황 분석")
                 
                 # 분석 가이드 추가
-                with st.expander("📖 스토어전체판매현황 분석 가이드", expanded=False):
+                with st.expander("📖 스토어 전체 판매현황 분석 가이드", expanded=False):
                     st.markdown("""
-                    ### 🏪 스토어전체판매현황 분석이란?
+                    ### 🏪 스토어 전체 판매현황 분석이란?
                     스토어의 **전체 상품 판매 데이터**를 다각도로 분석하여 매출 성과와 트렌드를 파악하는 종합 분석입니다.
                     
                     ### 📊 제공하는 4가지 분석
@@ -1078,7 +993,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                     - **리뷰 효율성**: 리뷰 1건당 매출이 높은 상품
                     - **숨겨진 보석**: 매출은 낮지만 리뷰 점수가 높은 상품 (리뷰 점수 4.5 이상 & 매출 하위 50%에 속하는 상품)
                     - **잠재력 미달**: 리뷰는 좋은데 매출이 예상보다 낮은 상품 (리뷰 점수 4.0 이상 & 매출 상위 75%에 못미치는 상품)
-                    - **리뷰 확보 필요**: 매출은 높은데 리뷰가 적은 상품
+                    - **리뷰 확보 필요**: 매출은 높은데 리뷰가 적은 상품 (매출 상위 50% & 리뷰수 하위 50%에 속하는 상품)
                     - **가성비 인증**: 저렴한 가격 + 높은 리뷰 점수 상품 (가격 하위 50% & 리뷰 점수 4.0 이상)
                     """)
                 
@@ -1436,7 +1351,7 @@ elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "
                             else:
                                 st.info("가성비 인증 상품 분석을 위한 데이터가 부족합니다.")
             else:
-                st.warning("스토어전체판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
+                st.warning("스토어 전체 판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
             
     except Exception as e:
         st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
