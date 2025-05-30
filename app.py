@@ -233,47 +233,40 @@ def render_stopwords_ui():
     # 구분선과 제목
     st.markdown("---")
     st.subheader("🔧 불용어 관리")
-    st.info("불용어는 워드클라우드에서 제외되는 단어입니다. 불필요하게 자주 등장하는 단어를 추가하면 더 의미 있는 분석이 가능합니다.")
     
-    # 현재 불용어 목록과 추가 기능을 좌우로 배치
-    col1, col2 = st.columns([3, 1])
+    # 현재 불용어 목록 가져오기
+    current_stopwords = get_stopwords()
     
-    with col1:
-        # 현재 불용어 목록 표시
-        st.markdown("**📋 현재 불용어 목록**")
-        current_stopwords = get_stopwords()
-        
-        # 불용어를 더 많은 열로 표시 (8열로 증가)
-        if current_stopwords:
-            cols = st.columns(8)  # 6열에서 8열로 증가
-            for i, word in enumerate(sorted(current_stopwords)):
-                with cols[i % 8]:
-                    if st.button(f"✕ {word}", key=f"remove_{word}", help=f"'{word}' 삭제"):
-                        remove_stopword(word)
-                        st.rerun()
-        else:
-            st.write("등록된 불용어가 없습니다.")
+    # 기본 불용어와 추가 불용어 구분
+    from utils import DEFAULT_STOPWORDS
+    basic_words = [word for word in current_stopwords if word in DEFAULT_STOPWORDS]
+    added_words = [word for word in current_stopwords if word not in DEFAULT_STOPWORDS]
     
-    with col2:
-        # 새 불용어 추가
-        st.markdown("**➕ 불용어 추가**")
-        
-        # 폼을 사용해서 엔터키와 버튼 클릭 모두 처리
-        with st.form("add_stopword_form", clear_on_submit=True):
-            new_stopword = st.text_input("추가할 단어", placeholder="예: 제품, 상품")
-            
-            col2_1, col2_2 = st.columns(2)
-            # 추가 버튼 제거됨
-            
-            with col2_2:
-                if st.form_submit_button("초기화", use_container_width=False):
-                    reset_stopwords()
-                    st.rerun()
-            
-            # 엔터키로 단어 추가
-            if new_stopword.strip():
-                add_stopword(new_stopword)
-                st.rerun()
+    # 기본 불용어는 정렬, 추가 불용어는 입력 순서 유지
+    sorted_basic = sorted(basic_words)
+    display_order = sorted_basic + added_words
+    current_text = ", ".join(display_order) if display_order else ""
+    
+    # 불용어 업데이트 콜백 함수
+    def update_stopwords():
+        if st.session_state.stopwords_input:
+            new_stopwords = [word.strip() for word in st.session_state.stopwords_input.split(',') if word.strip()]
+            st.session_state.stopwords = new_stopwords
+    
+    # 불용어 설정 (엔터키로 적용)
+    custom_stopwords = st.text_input("불용어 (쉼표로 구분)", current_text, 
+                                     key="stopwords_input", on_change=update_stopwords)
+    
+    # 불용어 추가 방법 안내
+    st.caption("💡 새로운 불용어를 추가하려면 기존 목록 뒤에 **', 새단어'**를 입력하고 Enter를 누르세요.")
+
+# 함수: 불용어 목록 저장 (세션 기반으로 수정)
+def save_stopwords_list(stopwords_list):
+    """불용어 목록을 세션에 저장합니다."""
+    try:
+        st.session_state.stopwords = stopwords_list
+    except Exception as e:
+        st.error(f"불용어 저장 중 오류가 발생했습니다: {e}")
 
 # 함수: 파일 유형 자동 감지
 def detect_file_type(df):
