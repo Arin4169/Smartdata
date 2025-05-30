@@ -263,16 +263,15 @@ def render_stopwords_ui():
             new_stopword = st.text_input("추가할 단어", placeholder="예: 제품, 상품")
             
             col2_1, col2_2 = st.columns(2)
-            with col2_1:
-                submitted = st.form_submit_button("추가", use_container_width=True)
+            # 추가 버튼 제거됨
             
             with col2_2:
-                if st.form_submit_button("초기화", use_container_width=True):
+                if st.form_submit_button("초기화", use_container_width=False):
                     reset_stopwords()
                     st.rerun()
             
-            # 엔터키나 추가 버튼 클릭 시 실행
-            if submitted and new_stopword.strip():
+            # 엔터키로 단어 추가
+            if new_stopword.strip():
                 add_stopword(new_stopword)
                 st.rerun()
 
