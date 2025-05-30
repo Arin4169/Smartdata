@@ -258,7 +258,7 @@ def render_stopwords_ui():
                                      key="stopwords_input", on_change=update_stopwords)
     
     # 불용어 추가 방법 안내
-    st.caption("💡 새로운 불용어를 추가하려면 기존 목록 뒤에 **', 새단어'**를 입력하고 Enter를 누르세요.")
+    st.markdown("💡 새로운 불용어를 추가하려면 기존 목록 뒤에 **', 새단어'** 를 입력하고 Enter를 누르세요.")
 
 # 함수: 불용어 목록 저장 (세션 기반으로 수정)
 def save_stopwords_list(stopwords_list):
@@ -353,9 +353,17 @@ with st.sidebar:
         """)
     
     st.header("분석 메뉴")
-    # 세션 상태 초기화
+    # 세션 상태 초기화 (URL 파라미터 반영)
     if 'analysis_option' not in st.session_state:
-        st.session_state.analysis_option = "홈"
+        # URL 파라미터에서 페이지 정보 읽기
+        try:
+            query_params = st.query_params
+            if 'page' in query_params:
+                st.session_state.analysis_option = query_params['page']
+            else:
+                st.session_state.analysis_option = "홈"
+        except:
+            st.session_state.analysis_option = "홈"
     
     analysis_option = st.radio(
         "분석 유형 선택",
@@ -363,9 +371,11 @@ with st.sidebar:
         index=["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.analysis_option) if st.session_state.analysis_option in ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"] else 0
     )
     
-    # 라디오 버튼 선택이 변경되면 세션 상태 업데이트
+    # 라디오 버튼 선택이 변경되면 세션 상태 및 URL 업데이트
     if analysis_option != st.session_state.analysis_option:
         st.session_state.analysis_option = analysis_option
+        # URL 파라미터 업데이트
+        st.query_params['page'] = analysis_option
 
 # 데이터 저장 변수
 review_df = None
@@ -384,6 +394,7 @@ if st.session_state.analysis_option == "홈":
         if st.button("📊 리뷰 워드클라우드 분석\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
                      key="card1", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 워드클라우드"
+            st.query_params['page'] = "리뷰 분석 - 워드클라우드"
             st.rerun()
     
     with col2:
@@ -391,6 +402,7 @@ if st.session_state.analysis_option == "홈":
         if st.button("😊 리뷰 감정 분석\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
                      key="card2", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 감정분석"
+            st.query_params['page'] = "리뷰 분석 - 감정분석"
             st.rerun()
     
     # 두 번째 행
@@ -401,6 +413,7 @@ if st.session_state.analysis_option == "홈":
         if st.button("🎯 옵션 분석\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
                      key="card3", use_container_width=True):
             st.session_state.analysis_option = "옵션 분석"
+            st.query_params['page'] = "옵션 분석"
             st.rerun()
     
     with col4:
@@ -408,6 +421,7 @@ if st.session_state.analysis_option == "홈":
         if st.button("📈 스토어 전체 판매 현황\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
             st.session_state.analysis_option = "스토어 전체 판매현황"
+            st.query_params['page'] = "스토어 전체 판매현황"
             st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
