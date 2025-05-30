@@ -343,11 +343,11 @@ with st.sidebar:
     uploaded_file = st.file_uploader("스마트 스토어 데이터 파일", type=["xlsx", "csv"], help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요.")
     
     # 파일 타입 설명
-    with st.expander("파일 타입 설명"):
-        st.info("""
-        • 리뷰 분석 파일: 리뷰 내용 컬럼을 포함한 파일
-        • 옵션 비율 파일: 옵션 정보와 판매량/수량 컬럼을 포함한 파일
-        • 판매 현황 파일: 기타 판매 관련 파일
+    with st.expander("📁 파일 타입 설명"):
+        st.markdown("""
+        • **reviewcontents**: 리뷰 내용 컬럼을 포함한 파일  
+        • **옵션비율**: 옵션 정보와 판매량/수량 컬럼을 포함한 파일  
+        • **스토어전체판매현황**: 기타 판매 관련 파일  
         
         파일 유형은 자동으로 감지됩니다.
         """)
@@ -391,7 +391,7 @@ if st.session_state.analysis_option == "홈":
     
     with col1:
         # 리뷰 워드클라우드 분석 카드
-        if st.button("📊 리뷰 워드클라우드 분석\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
+        if st.button("**📊 리뷰 워드클라우드 분석**\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
                      key="card1", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 워드클라우드"
             st.query_params['page'] = "리뷰 분석 - 워드클라우드"
@@ -399,7 +399,7 @@ if st.session_state.analysis_option == "홈":
     
     with col2:
         # 리뷰 감정 분석 카드
-        if st.button("😊 리뷰 감정 분석\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
+        if st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
                      key="card2", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 감정분석"
             st.query_params['page'] = "리뷰 분석 - 감정분석"
@@ -410,7 +410,7 @@ if st.session_state.analysis_option == "홈":
     
     with col3:
         # 옵션 분석 카드
-        if st.button("🎯 옵션 분석\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
+        if st.button("**🎯 옵션 분석**\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
                      key="card3", use_container_width=True):
             st.session_state.analysis_option = "옵션 분석"
             st.query_params['page'] = "옵션 분석"
@@ -418,7 +418,7 @@ if st.session_state.analysis_option == "홈":
     
     with col4:
         # 스토어 전체 판매 현황 카드
-        if st.button("📈 스토어 전체 판매 현황\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
+        if st.button("**📈 스토어 전체 판매 현황**\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
             st.session_state.analysis_option = "스토어 전체 판매현황"
             st.query_params['page'] = "스토어 전체 판매현황"
