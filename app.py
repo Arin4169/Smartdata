@@ -423,62 +423,27 @@ sales_df = None
 
 # 업로드된 파일들 처리
 if uploaded_files:
-    st.sidebar.write("📋 **파일 처리 상태:**")
     try:
         for uploaded_file in uploaded_files:
-            st.sidebar.write(f"🔍 **{uploaded_file.name}** 처리 중...")
-            
             # 파일 읽기
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
             else:
                 df = pd.read_excel(uploaded_file)
             
-            # 파일 기본 정보 표시
-            st.sidebar.write(f"  - 행 수: {len(df)}")
-            st.sidebar.write(f"  - 컬럼 수: {len(df.columns)}")
-            st.sidebar.write(f"  - 컬럼명(첫 3개): {list(df.columns)[:3]}")
-            
             # 파일 타입 감지 및 데이터 할당
             file_type = detect_file_type(df, uploaded_file.name)
-            st.sidebar.write(f"  - **감지된 타입: {file_type}**")
             
             if file_type == "review":
                 review_df = check_review_columns(df)
-                st.sidebar.success(f"✅ **리뷰 데이터로 처리됨** (행수: {len(review_df)})")
-                if 'review_content' in review_df.columns:
-                    st.sidebar.info(f"📝 리뷰 컬럼: review_content")
-                else:
-                    st.sidebar.warning(f"⚠️ review_content 컬럼 없음. 현재 컬럼: {list(review_df.columns)[:3]}")
             elif file_type == "option":
                 option_df = check_option_columns(df)
-                st.sidebar.success(f"✅ **옵션 데이터로 처리됨** (행수: {len(option_df)})")
             elif file_type == "sales":
                 sales_df = df
-                st.sidebar.success(f"✅ **판매현황 데이터로 처리됨** (행수: {len(sales_df)})")
-            
-            st.sidebar.write("---")
             
     except Exception as e:
         st.sidebar.error(f"파일 처리 중 오류가 발생했습니다: {e}")
         st.sidebar.write(f"오류 상세: {type(e).__name__}: {str(e)}")
-
-# 현재 로드된 데이터 상태 표시
-st.sidebar.write("📊 **현재 데이터 상태:**")
-if review_df is not None:
-    st.sidebar.success(f"리뷰 데이터: ✅ ({len(review_df)}행)")
-else:
-    st.sidebar.info("리뷰 데이터: ❌")
-
-if option_df is not None:
-    st.sidebar.success(f"옵션 데이터: ✅ ({len(option_df)}행)")
-else:
-    st.sidebar.info("옵션 데이터: ❌")
-
-if sales_df is not None:
-    st.sidebar.success(f"판매현황 데이터: ✅ ({len(sales_df)}행)")
-else:
-    st.sidebar.info("판매현황 데이터: ❌")
 
 # 메인 화면
 if st.session_state.analysis_option == "홈":

@@ -269,25 +269,64 @@ def save_stopwords_list(stopwords_list):
         st.error(f"불용어 저장 중 오류가 발생했습니다: {e}")
 
 # 함수: 파일 유형 자동 감지
-def detect_file_type(df):
+def detect_file_type(df, filename=""):
     """업로드된 파일의 유형을 자동으로 감지합니다"""
-    # 리뷰 파일 감지
-    potential_review_columns = ['REVIEW_CONTENT', 'review_content', '리뷰내용', '내용', 'CONTENT']
-    if any(col in df.columns for col in potential_review_columns):
+    
+    # 1. 파일명 기반 감지 (우선순위 최고)
+    filename_lower = filename.lower()
+    # 파일명에서 괄호와 숫자 제거 (예: "reviewcontents (4).xlsx" → "reviewcontents.xlsx")
+    import re
+    cleaned_filename = re.sub(r'\s*\(\d+\)', '', filename_lower)
+    
+    print(f"[DEBUG] 파일명: {filename} -> {filename_lower} -> 정리됨: {cleaned_filename}")
+    
+    if 'reviewcontent' in cleaned_filename or 'review' in cleaned_filename:
+        print(f"[DEBUG] 파일명 기준으로 review 감지: {filename}")
+        return "review"
+    elif '옵션' in cleaned_filename or 'option' in cleaned_filename:
+        print(f"[DEBUG] 파일명 기준으로 option 감지: {filename}")
+        return "option"
+    elif '판매현황' in cleaned_filename or '스토어' in cleaned_filename or 'sales' in cleaned_filename:
+        print(f"[DEBUG] 파일명 기준으로 sales 감지: {filename}")
+        return "sales"
+    
+    # 2. 컬럼명 기반 감지
+    columns_lower = [col.lower() for col in df.columns]
+    columns_str = ' '.join(columns_lower)
+    print(f"[DEBUG] 컬럼명들(소문자): {columns_lower}")
+    
+    # 리뷰 파일 감지 - 더 구체적인 키워드 사용
+    review_keywords = ['review_content', '리뷰내용', '리뷰', 'content', '내용', '후기', '평가', '댓글', 'review']
+    matched_review = [kw for kw in review_keywords if kw in columns_str]
+    if matched_review:
+        print(f"[DEBUG] 컬럼명 기준으로 review 감지. 매칭된 키워드: {matched_review}")
         return "review"
     
-    # 옵션 비율 파일 감지
-    potential_option_columns = ['OPTION_INFO', 'option_info', '옵션정보', '옵션명', '상품옵션']
-    potential_count_columns = ['COUNT', 'count', '수량', '판매량', '판매수량']
-    if any(col in df.columns for col in potential_option_columns) and any(col in df.columns for col in potential_count_columns):
+    # 옵션 비율 파일 감지 (옵션 + 수량 모두 있어야 함)
+    option_keywords = ['option', '옵션', 'option_info', '옵션정보', '옵션명']
+    count_keywords = ['count', '수량', '판매량', '판매수량', '개수', 'quantity']
+    
+    matched_option = [kw for kw in option_keywords if kw in columns_str]
+    matched_count = [kw for kw in count_keywords if kw in columns_str]
+    
+    has_option = len(matched_option) > 0
+    has_count = len(matched_count) > 0
+    
+    print(f"[DEBUG] 옵션 키워드 매칭: {matched_option}, 수량 키워드 매칭: {matched_count}")
+    
+    if has_option and has_count:
+        print(f"[DEBUG] 컬럼명 기준으로 option 감지")
         return "option"
     
     # 스토어 전체 판매현황 파일 감지
-    potential_sales_columns = ['상품명', '매출', '판매건수', '기본판매가격']
-    if '상품명' in df.columns and any('매출' in str(col) for col in df.columns):
+    sales_keywords = ['상품명', '매출', '판매건수', '기본판매가격', 'product', 'sales']
+    matched_sales = [kw for kw in sales_keywords if kw in columns_str]
+    if matched_sales:
+        print(f"[DEBUG] 컬럼명 기준으로 sales 감지. 매칭된 키워드: {matched_sales}")
         return "sales"
     
-    # 기타 파일은 sales로 간주
+    # 기본값은 sales로 간주
+    print(f"[DEBUG] 기본값으로 sales 반환")
     return "sales"
 
 # 함수: 리뷰 데이터프레임 컬럼 이름 확인 및 수정
@@ -384,26 +423,62 @@ sales_df = None
 
 # 업로드된 파일들 처리
 if uploaded_files:
+    st.sidebar.write("📋 **파일 처리 상태:**")
     try:
         for uploaded_file in uploaded_files:
+            st.sidebar.write(f"🔍 **{uploaded_file.name}** 처리 중...")
+            
             # 파일 읽기
             if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
+                df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
             else:
                 df = pd.read_excel(uploaded_file)
             
+            # 파일 기본 정보 표시
+            st.sidebar.write(f"  - 행 수: {len(df)}")
+            st.sidebar.write(f"  - 컬럼 수: {len(df.columns)}")
+            st.sidebar.write(f"  - 컬럼명(첫 3개): {list(df.columns)[:3]}")
+            
             # 파일 타입 감지 및 데이터 할당
-            file_type = detect_file_type(df)
+            file_type = detect_file_type(df, uploaded_file.name)
+            st.sidebar.write(f"  - **감지된 타입: {file_type}**")
             
             if file_type == "review":
                 review_df = check_review_columns(df)
+                st.sidebar.success(f"✅ **리뷰 데이터로 처리됨** (행수: {len(review_df)})")
+                if 'review_content' in review_df.columns:
+                    st.sidebar.info(f"📝 리뷰 컬럼: review_content")
+                else:
+                    st.sidebar.warning(f"⚠️ review_content 컬럼 없음. 현재 컬럼: {list(review_df.columns)[:3]}")
             elif file_type == "option":
                 option_df = check_option_columns(df)
+                st.sidebar.success(f"✅ **옵션 데이터로 처리됨** (행수: {len(option_df)})")
             elif file_type == "sales":
                 sales_df = df
+                st.sidebar.success(f"✅ **판매현황 데이터로 처리됨** (행수: {len(sales_df)})")
+            
+            st.sidebar.write("---")
             
     except Exception as e:
         st.sidebar.error(f"파일 처리 중 오류가 발생했습니다: {e}")
+        st.sidebar.write(f"오류 상세: {type(e).__name__}: {str(e)}")
+
+# 현재 로드된 데이터 상태 표시
+st.sidebar.write("📊 **현재 데이터 상태:**")
+if review_df is not None:
+    st.sidebar.success(f"리뷰 데이터: ✅ ({len(review_df)}행)")
+else:
+    st.sidebar.info("리뷰 데이터: ❌")
+
+if option_df is not None:
+    st.sidebar.success(f"옵션 데이터: ✅ ({len(option_df)}행)")
+else:
+    st.sidebar.info("옵션 데이터: ❌")
+
+if sales_df is not None:
+    st.sidebar.success(f"판매현황 데이터: ✅ ({len(sales_df)}행)")
+else:
+    st.sidebar.info("판매현황 데이터: ❌")
 
 # 메인 화면
 if st.session_state.analysis_option == "홈":
@@ -596,35 +671,47 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         - 샘플 데이터로 먼저 테스트
         """)
 
-elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
-    # 파일이 업로드되지 않았지만 분석이 선택된 경우 샘플 데이터 사용
+elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
+    # 분석이 선택된 경우 - 업로드된 파일이 있으면 사용하고, 없으면 샘플 데이터 사용
     try:
-        # 샘플 데이터 로드
-        if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
-            try:
-                review_df = pd.read_excel("data/reviewcontents.xlsx")
-                review_df = check_review_columns(review_df)
-            except FileNotFoundError:
-                st.warning("⚠️ 샘플 리뷰 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 리뷰 데이터 파일을 업로드해주세요.")
-                st.stop()
-        elif st.session_state.analysis_option == "스토어 전체 판매현황":
-            try:
-                sales_df = pd.read_excel("data/스토어전체판매현황.xlsx")
-            except FileNotFoundError:
-                st.warning("⚠️ 샘플 판매현황 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 판매현황 데이터 파일을 업로드해주세요.")
-                st.stop()
-        
-        if st.session_state.analysis_option == "옵션 분석":
-            try:
-                option_df = pd.read_excel("data/옵션비율.xlsx")
-                option_df = check_option_columns(option_df)
-            except FileNotFoundError:
-                st.warning("⚠️ 샘플 옵션 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 옵션 데이터 파일을 업로드해주세요.")
-                st.stop()
+        # 업로드된 파일이 없는 경우에만 샘플 데이터 로드
+        if not uploaded_files:
+            if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
+                try:
+                    review_df = pd.read_excel("data/reviewcontents.xlsx")
+                    review_df = check_review_columns(review_df)
+                except FileNotFoundError:
+                    st.warning("⚠️ 샘플 리뷰 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 리뷰 데이터 파일을 업로드해주세요.")
+                    st.stop()
+            elif st.session_state.analysis_option == "스토어 전체 판매현황":
+                try:
+                    sales_df = pd.read_excel("data/스토어전체판매현황.xlsx")
+                except FileNotFoundError:
+                    st.warning("⚠️ 샘플 판매현황 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 판매현황 데이터 파일을 업로드해주세요.")
+                    st.stop()
+            
+            if st.session_state.analysis_option == "옵션 분석":
+                try:
+                    option_df = pd.read_excel("data/옵션비율.xlsx")
+                    option_df = check_option_columns(option_df)
+                except FileNotFoundError:
+                    st.warning("⚠️ 샘플 옵션 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 옵션 데이터 파일을 업로드해주세요.")
+                    st.stop()
         
         # 분석 실행
         if st.session_state.analysis_option == "리뷰 분석 - 워드클라우드":
             st.header("📊 리뷰 워드클라우드 분석")
+            
+            # 데이터 확인
+            if review_df is None or review_df.empty:
+                st.error("⚠️ 리뷰 데이터가 없습니다. 리뷰 컨텐츠 파일을 업로드해주세요.")
+                st.info("💡 업로드된 파일에서 다음 컬럼 중 하나가 포함되어야 합니다: REVIEW_CONTENT, review_content, 리뷰내용, 내용, CONTENT")
+                st.stop()
+
+            if 'review_content' not in review_df.columns:
+                st.error("⚠️ 리뷰 내용 컬럼을 찾을 수 없습니다.")
+                st.info(f"현재 컬럼: {list(review_df.columns)}")
+                st.stop()
             
             # 분석 가이드 추가
             with st.expander("📖 워드클라우드 분석 가이드", expanded=False):
@@ -722,6 +809,17 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
         
         elif st.session_state.analysis_option == "리뷰 분석 - 감정분석":
             st.header("😊 리뷰 감정분석")
+            
+            # 데이터 확인
+            if review_df is None or review_df.empty:
+                st.error("⚠️ 리뷰 데이터가 없습니다. 리뷰 컨텐츠 파일을 업로드해주세요.")
+                st.info("💡 업로드된 파일에서 다음 컬럼 중 하나가 포함되어야 합니다: REVIEW_CONTENT, review_content, 리뷰내용, 내용, CONTENT")
+                st.stop()
+
+            if 'review_content' not in review_df.columns:
+                st.error("⚠️ 리뷰 내용 컬럼을 찾을 수 없습니다.")
+                st.info(f"현재 컬럼: {list(review_df.columns)}")
+                st.stop()
             
             # 분석 가이드 추가
             with st.expander("📖 감정분석 가이드", expanded=False):
@@ -936,6 +1034,14 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
         elif st.session_state.analysis_option == "옵션 분석":
             st.header("🎯 옵션 분석")
             
+            # 데이터 확인
+            if option_df is None or option_df.empty:
+                st.error("⚠️ 옵션 데이터가 없습니다. 옵션 비율 파일을 업로드해주세요.")
+                st.info("💡 업로드된 파일에서 옵션 정보와 수량 컬럼이 모두 포함되어야 합니다:")
+                st.info("- 옵션 컬럼: OPTION_INFO, option_info, 옵션정보, 옵션명, 상품옵션")
+                st.info("- 수량 컬럼: COUNT, count, 수량, 판매량, 판매수량")
+                st.stop()
+            
             # 분석 가이드 추가
             with st.expander("📖 옵션 분석 가이드", expanded=False):
                 st.markdown("""
@@ -1047,18 +1153,6 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
                     # 기간 선택 필터
                     st.subheader("📅 분석 기간 선택")
                     
-                    # selectbox 커서 스타일 추가
-                    st.markdown("""
-                    <style>
-                    div[data-baseweb="select"] {
-                        cursor: pointer !important;
-                    }
-                    div[data-baseweb="select"] > div {
-                        cursor: pointer !important;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
                     selected_period = st.selectbox(
                         "매출 분석 기간을 선택하세요:",
                         available_periods,
@@ -1081,16 +1175,6 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
                             st.metric("최대 매출", f"{summary_stats['최대매출']:,}원")
                     
                     # 분석 탭 생성
-                    # 탭 폰트 크기 강제 적용
-                    st.markdown("""
-                    <style>
-                    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-                        font-size: 24px !important;
-                        font-weight: 600 !important;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
                     tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "매출 효율성", "가격대별 분석", "리뷰-매출 인사이트"])
                     
                     with tab1:
@@ -1100,34 +1184,25 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
                         if not top_products.empty:
                             st.dataframe(top_products, use_container_width=True, hide_index=True)
                             
-                            # 표와 그래프 사이 간격 추가
-                            st.markdown("<br><br>", unsafe_allow_html=True)
-                            
                             # 매출 랭킹 시각화
                             fig, ax = plt.subplots(figsize=(12, 6))
                             
-                            # 막대 그래프 생성
                             bars = ax.bar(range(len(top_products)), 
                                          top_products[f'{selected_period} 매출'], 
                                          color='steelblue')
                             
-                            # 상품명을 x축 레이블로 설정 (회전)
                             ax.set_xticks(range(len(top_products)))
                             ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
                                                for name in top_products['상품명']], 
                                               rotation=45, ha='right')
                             
-                            # 막대 위에 매출 표시
                             for i, v in enumerate(top_products[f'{selected_period} 매출']):
                                 ax.text(i, v + max(top_products[f'{selected_period} 매출']) * 0.01, 
                                        f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
                             
                             ax.set_ylabel('매출 (원)')
                             ax.set_title(f'{selected_period} 매출 상위 10개 상품')
-                            
-                            # 한글 폰트 적용
                             set_korean_font(ax)
-                            
                             plt.tight_layout()
                             st.pyplot(fig)
                         else:
@@ -1139,32 +1214,6 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
                         
                         if not efficiency_data.empty:
                             st.dataframe(efficiency_data, use_container_width=True, hide_index=True)
-                            
-                            # 효율성 시각화
-                            fig, ax = plt.subplots(figsize=(12, 6))
-                            
-                            bars = ax.bar(range(len(efficiency_data)), 
-                                         efficiency_data['가격대비매출지수'], 
-                                         color='orange')
-                            
-                            ax.set_xticks(range(len(efficiency_data)))
-                            ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                               for name in efficiency_data['상품명']], 
-                                              rotation=45, ha='right')
-                            
-                            # 막대 위에 효율성 표시
-                            for i, v in enumerate(efficiency_data['가격대비매출지수']):
-                                ax.text(i, v + max(efficiency_data['가격대비매출지수']) * 0.01, 
-                                       f'{v:.1f}', ha='center', va='bottom', fontsize=8)
-                            
-                            ax.set_ylabel('가격대비매출지수 (매출/가격)')
-                            ax.set_title(f'{selected_period} 가격 대비 매출 효율성')
-                            
-                            # 한글 폰트 적용
-                            set_korean_font(ax)
-                            
-                            plt.tight_layout()
-                            st.pyplot(fig)
                         else:
                             st.info("매출 효율성 분석을 위한 데이터가 부족합니다.")
                     
@@ -1174,225 +1223,17 @@ elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데
                         
                         if not price_segments.empty:
                             st.dataframe(price_segments, use_container_width=True, hide_index=True)
-                            
-                            # 가격대별 분석 시각화
-                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-                            
-                            # 가격대별 상품수
-                            ax1.bar(price_segments['가격대'], price_segments['상품수'], color='lightblue')
-                            ax1.set_title('가격대별 상품 수')
-                            ax1.set_ylabel('상품 수')
-                            ax1.tick_params(axis='x', rotation=45)
-                            
-                            # 가격대별 평균매출
-                            ax2.bar(price_segments['가격대'], price_segments['평균매출'], color='lightgreen')
-                            ax2.set_title('가격대별 평균 매출')
-                            ax2.set_ylabel('평균 매출 (원)')
-                            ax2.tick_params(axis='x', rotation=45)
-                            
-                            # 한글 폰트 적용
-                            set_korean_font(ax1)
-                            set_korean_font(ax2)
-                            
-                            plt.tight_layout()
-                            st.pyplot(fig)
                         else:
                             st.info("가격대별 분석을 위한 데이터가 부족합니다.")
                     
                     with tab4:
                         st.subheader(f"💡 {selected_period} 리뷰-매출 인사이트")
+                        st.info("리뷰-매출 인사이트 분석을 위해서는 리뷰 점수 데이터가 필요합니다.")
                         
-                        # 리뷰-매출 인사이트 탭 생성
-                        insight_tab1, insight_tab2, insight_tab3, insight_tab4, insight_tab5 = st.tabs([
-                            "⚡ 리뷰 효율성", "💎 숨겨진 보석", "📈 잠재력 미달", "🔥 리뷰 확보 필요", "💰 가성비 인증"
-                        ])
-                        
-                        with insight_tab1:
-                            st.markdown("### ⚡ 리뷰 효율성 랭킹")
-                            st.info("💡 **리뷰 1건당 매출이 가장 높은 상품은?** - 리뷰 대비 매출 효율성이 높은 상품을 찾아보세요!")
-                            
-                            efficiency_data = analyze_review_efficiency(sales_df, selected_period)
-                            
-                            if not efficiency_data.empty:
-                                st.dataframe(efficiency_data, use_container_width=True, hide_index=True)
-                                
-                                # 리뷰 효율성 시각화
-                                fig, ax = plt.subplots(figsize=(12, 6))
-                                
-                                bars = ax.bar(range(len(efficiency_data)), 
-                                             efficiency_data['리뷰1건당매출'], 
-                                             color='lightcoral')
-                                
-                                ax.set_xticks(range(len(efficiency_data)))
-                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                                   for name in efficiency_data['상품명']], 
-                                                  rotation=45, ha='right')
-                                
-                                # 막대 위에 값 표시
-                                for i, v in enumerate(efficiency_data['리뷰1건당매출']):
-                                    ax.text(i, v + max(efficiency_data['리뷰1건당매출']) * 0.01, 
-                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
-                                
-                                ax.set_title('리뷰 1건당 매출 상위 10개 상품')
-                                ax.set_ylabel('리뷰 1건당 매출 (원)')
-                                
-                                # 한글 폰트 적용
-                                set_korean_font(ax)
-                                
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                            else:
-                                st.info("리뷰 효율성 분석을 위한 데이터가 부족합니다.")
-                        
-                        with insight_tab2:
-                            st.markdown("### 💎 숨겨진 보석 상품")
-                            st.info("💡 **매출은 낮은데 리뷰 점수가 높은 상품은?** - 마케팅 강화로 매출을 늘릴 수 있는 상품을 찾아보세요!")
-                            
-                            hidden_gems_data = analyze_hidden_gems(sales_df, selected_period)
-                            
-                            if not hidden_gems_data.empty:
-                                st.dataframe(hidden_gems_data, use_container_width=True, hide_index=True)
-                                
-                                # 숨겨진 보석 시각화
-                                fig, ax = plt.subplots(figsize=(12, 6))
-                                
-                                bars = ax.bar(range(len(hidden_gems_data)), 
-                                             hidden_gems_data['리뷰점수'], 
-                                             color='mediumseagreen')
-                                
-                                ax.set_xticks(range(len(hidden_gems_data)))
-                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                                   for name in hidden_gems_data['상품명']], 
-                                                  rotation=45, ha='right')
-                                
-                                # 막대 위에 값 표시
-                                for i, v in enumerate(hidden_gems_data['리뷰점수']):
-                                    ax.text(i, v + 0.05, f'{v:.1f}', ha='center', va='bottom', fontsize=8)
-                                
-                                ax.set_title('숨겨진 보석 상품 (높은 리뷰점수 + 낮은 매출)')
-                                ax.set_ylabel('리뷰 점수')
-                                ax.set_ylim(0, 5.5)
-                                
-                                # 한글 폰트 적용
-                                set_korean_font(ax)
-                                
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                            else:
-                                st.info("숨겨진 보석 상품 분석을 위한 데이터가 부족합니다.")
-                        
-                        with insight_tab3:
-                            st.markdown("### 📈 잠재력 미달 상품")
-                            st.info("💡 **리뷰는 좋은데 매출이 예상보다 낮은 상품은?** - 프로모션이나 노출 개선이 필요한 상품을 찾아보세요!")
-                            
-                            underperforming_data = analyze_underperforming_products(sales_df, selected_period)
-                            
-                            if not underperforming_data.empty:
-                                st.dataframe(underperforming_data, use_container_width=True, hide_index=True)
-                                
-                                # 잠재력 미달 시각화
-                                fig, ax = plt.subplots(figsize=(12, 6))
-                                
-                                bars = ax.bar(range(len(underperforming_data)), 
-                                             underperforming_data[f'{selected_period} 매출'], 
-                                             color='orange')
-                                
-                                ax.set_xticks(range(len(underperforming_data)))
-                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                                   for name in underperforming_data['상품명']], 
-                                                  rotation=45, ha='right')
-                                
-                                # 막대 위에 값 표시
-                                for i, v in enumerate(underperforming_data[f'{selected_period} 매출']):
-                                    ax.text(i, v + max(underperforming_data[f'{selected_period} 매출']) * 0.01, 
-                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
-                                
-                                ax.set_title('잠재력 미달 상품 (좋은 리뷰 + 저조한 매출)')
-                                ax.set_ylabel('매출 (원)')
-                                
-                                # 한글 폰트 적용
-                                set_korean_font(ax)
-                                
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                            else:
-                                st.info("잠재력 미달 상품 분석을 위한 데이터가 부족합니다.")
-                        
-                        with insight_tab4:
-                            st.markdown("### 🔥 리뷰 확보 필요 상품")
-                            st.info("💡 **매출은 높은데 리뷰가 적은 상품은?** - 리뷰 수집 캠페인이 필요한 상품을 찾아보세요!")
-                            
-                            review_needed_data = analyze_review_needed_products(sales_df, selected_period)
-                            
-                            if not review_needed_data.empty:
-                                st.dataframe(review_needed_data, use_container_width=True, hide_index=True)
-                                
-                                # 리뷰 확보 필요 시각화
-                                fig, ax = plt.subplots(figsize=(12, 6))
-                                
-                                bars = ax.bar(range(len(review_needed_data)), 
-                                             review_needed_data['매출대비리뷰부족도'], 
-                                             color='tomato')
-                                
-                                ax.set_xticks(range(len(review_needed_data)))
-                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                                   for name in review_needed_data['상품명']], 
-                                                  rotation=45, ha='right')
-                                
-                                # 막대 위에 값 표시
-                                for i, v in enumerate(review_needed_data['매출대비리뷰부족도']):
-                                    ax.text(i, v + max(review_needed_data['매출대비리뷰부족도']) * 0.01, 
-                                           f'{v:,.0f}', ha='center', va='bottom', fontsize=8)
-                                
-                                ax.set_title('리뷰 확보 필요 상품 (높은 매출 + 적은 리뷰)')
-                                ax.set_ylabel('매출대비 리뷰 부족도')
-                                
-                                # 한글 폰트 적용
-                                set_korean_font(ax)
-                                
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                            else:
-                                st.info("리뷰 확보 필요 상품 분석을 위한 데이터가 부족합니다.")
-                        
-                        with insight_tab5:
-                            st.markdown("### 💰 가성비 인증 상품")
-                            st.info("💡 **저렴한 가격 + 높은 리뷰 점수 상품은?** - 가성비 마케팅에 활용할 수 있는 상품을 찾아보세요!")
-                            
-                            value_products_data = analyze_value_products(sales_df, selected_period)
-                            
-                            if not value_products_data.empty:
-                                st.dataframe(value_products_data, use_container_width=True, hide_index=True)
-                                
-                                # 가성비 인증 시각화
-                                fig, ax = plt.subplots(figsize=(12, 6))
-                                
-                                bars = ax.bar(range(len(value_products_data)), 
-                                             value_products_data['가성비점수'], 
-                                             color='gold')
-                                
-                                ax.set_xticks(range(len(value_products_data)))
-                                ax.set_xticklabels([name[:15] + '...' if len(name) > 15 else name 
-                                                   for name in value_products_data['상품명']], 
-                                                  rotation=45, ha='right')
-                                
-                                # 막대 위에 값 표시
-                                for i, v in enumerate(value_products_data['가성비점수']):
-                                    ax.text(i, v + max(value_products_data['가성비점수']) * 0.01, 
-                                           f'{v:.1f}', ha='center', va='bottom', fontsize=8)
-                                
-                                ax.set_title('가성비 인증 상품 (저렴한 가격 + 높은 리뷰점수)')
-                                ax.set_ylabel('가성비 점수')
-                                
-                                # 한글 폰트 적용
-                                set_korean_font(ax)
-                                
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                            else:
-                                st.info("가성비 인증 상품 분석을 위한 데이터가 부족합니다.")
             else:
-                st.warning("스토어 전체 판매현황 분석을 위해 판매현황 파일을 업로드해주세요.")
-            
+                st.error("⚠️ 판매현황 데이터가 없습니다. 스토어 전체 판매현황 파일을 업로드해주세요.")
+                st.info("💡 업로드된 파일에서 '상품명' 컬럼과 '매출' 관련 컬럼이 포함되어야 합니다.")
+                st.stop()
+
     except Exception as e:
         st.error(f"데이터 처리 중 오류가 발생했습니다: {e}")
