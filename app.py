@@ -340,7 +340,7 @@ def check_option_columns(df):
 # 사이드바 - 파일 업로드 및 메뉴
 with st.sidebar:
     st.header("데이터 업로드")
-    uploaded_file = st.file_uploader("스마트 스토어 데이터 파일", type=["xlsx", "csv"], help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요.")
+    uploaded_files = st.file_uploader("스마트 스토어 데이터 파일", type=["xlsx", "csv"], accept_multiple_files=True, help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요. (최대 3개 파일)")
     
     # 파일 타입 설명
     with st.expander("📁 파일 타입 설명"):
@@ -381,6 +381,29 @@ with st.sidebar:
 review_df = None
 option_df = None
 sales_df = None
+
+# 업로드된 파일들 처리
+if uploaded_files:
+    try:
+        for uploaded_file in uploaded_files:
+            # 파일 읽기
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            
+            # 파일 타입 감지 및 데이터 할당
+            file_type = detect_file_type(df)
+            
+            if file_type == "review":
+                review_df = check_review_columns(df)
+            elif file_type == "option":
+                option_df = check_option_columns(df)
+            elif file_type == "sales":
+                sales_df = df
+            
+    except Exception as e:
+        st.sidebar.error(f"파일 처리 중 오류가 발생했습니다: {e}")
 
 # 메인 화면
 if st.session_state.analysis_option == "홈":
@@ -573,19 +596,31 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         - 샘플 데이터로 먼저 테스트
         """)
 
-elif uploaded_file is None and st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
+elif not uploaded_files and st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
     # 파일이 업로드되지 않았지만 분석이 선택된 경우 샘플 데이터 사용
     try:
         # 샘플 데이터 로드
         if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
-            review_df = pd.read_excel("data/reviewcontents (4).xlsx")
-            review_df = check_review_columns(review_df)
+            try:
+                review_df = pd.read_excel("data/reviewcontents.xlsx")
+                review_df = check_review_columns(review_df)
+            except FileNotFoundError:
+                st.warning("⚠️ 샘플 리뷰 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 리뷰 데이터 파일을 업로드해주세요.")
+                st.stop()
         elif st.session_state.analysis_option == "스토어 전체 판매현황":
-            sales_df = pd.read_excel("data/스토어전체판매현황 (2).xlsx")
+            try:
+                sales_df = pd.read_excel("data/스토어전체판매현황.xlsx")
+            except FileNotFoundError:
+                st.warning("⚠️ 샘플 판매현황 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 판매현황 데이터 파일을 업로드해주세요.")
+                st.stop()
         
         if st.session_state.analysis_option == "옵션 분석":
-            option_df = pd.read_excel("data/옵션비율 (2).xlsx")
-            option_df = check_option_columns(option_df)
+            try:
+                option_df = pd.read_excel("data/옵션비율.xlsx")
+                option_df = check_option_columns(option_df)
+            except FileNotFoundError:
+                st.warning("⚠️ 샘플 옵션 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 옵션 데이터 파일을 업로드해주세요.")
+                st.stop()
         
         # 분석 실행
         if st.session_state.analysis_option == "리뷰 분석 - 워드클라우드":
