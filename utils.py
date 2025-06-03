@@ -427,18 +427,18 @@ def analyze_sales_efficiency(df, period='1년'):
     if filtered_df.empty:
         return pd.DataFrame()
     
-    # 가격대비 매출지수 계산 (매출/가격)
-    filtered_df['가격대비매출지수'] = filtered_df[sales_col] / filtered_df[price_col]
+    # 매출효율성 계산 (매출/가격)
+    filtered_df['매출효율성'] = filtered_df[sales_col] / filtered_df[price_col]
     
-    # 상위 10개 가격대비 매출지수 상품
-    top_efficiency = filtered_df.nlargest(10, '가격대비매출지수')
+    # 상위 10개 매출효율성 상품
+    top_efficiency = filtered_df.nlargest(10, '매출효율성')
     
     result = pd.DataFrame({
         '순위': range(1, len(top_efficiency) + 1),
         '상품명': top_efficiency['상품명'].values,
         '기본판매가격': top_efficiency[price_col].values,
         f'{period} 매출': top_efficiency[sales_col].values,
-        '가격대비매출지수': top_efficiency['가격대비매출지수'].values
+        '매출효율성': top_efficiency['매출효율성'].values
     })
     
     return result
