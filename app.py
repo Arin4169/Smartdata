@@ -47,49 +47,56 @@ from utils import (
     analyze_value_products
 )
 
-# 한글 폰트 설정
-korean_font_path = get_font_path()
-korean_font_prop = None
+# 한글 폰트 설정 함수를 캐시된 리소스로 생성
+@st.cache_resource
+def setup_korean_font():
+    """한글 폰트를 설정하고 폰트 속성을 반환합니다."""
+    korean_font_path = get_font_path()
+    korean_font_prop = None
 
-if korean_font_path:
-    try:
-        korean_font_prop = fm.FontProperties(fname=korean_font_path)
-        plt.rcParams['font.family'] = korean_font_prop.get_name()
-        print(f"한글 폰트 설정 완료: {korean_font_path}")
-    except Exception as e:
-        print(f"폰트 설정 오류: {e}")
-        # 폰트 파일 경로를 직접 사용
-        plt.rcParams['font.family'] = korean_font_path
-else:
-    # 폰트 경로를 찾을 수 없는 경우 시스템 내장 폰트 사용 시도
-    try:
-        # Windows
-        if platform.system() == 'Windows':
-            plt.rcParams['font.family'] = 'Malgun Gothic'
-            korean_font_prop = fm.FontProperties(family='Malgun Gothic')
-        # macOS
-        elif platform.system() == 'Darwin':
-            plt.rcParams['font.family'] = 'AppleGothic'
-            korean_font_prop = fm.FontProperties(family='AppleGothic')
-        # Linux (Streamlit Cloud)
-        else:
-            # 나눔고딕 폰트 시도
-            available_fonts = [f.name for f in fm.fontManager.ttflist]
-            nanum_fonts = [f for f in available_fonts if 'Nanum' in f]
-            
-            if nanum_fonts:
-                plt.rcParams['font.family'] = nanum_fonts[0]
-                korean_font_prop = fm.FontProperties(family=nanum_fonts[0])
-                print(f"나눔 폰트 설정: {nanum_fonts[0]}")
+    if korean_font_path:
+        try:
+            korean_font_prop = fm.FontProperties(fname=korean_font_path)
+            plt.rcParams['font.family'] = korean_font_prop.get_name()
+            print(f"한글 폰트 설정 완료: {korean_font_path}")
+        except Exception as e:
+            print(f"폰트 설정 오류: {e}")
+            # 폰트 파일 경로를 직접 사용
+            plt.rcParams['font.family'] = korean_font_path
+    else:
+        # 폰트 경로를 찾을 수 없는 경우 시스템 내장 폰트 사용 시도
+        try:
+            # Windows
+            if platform.system() == 'Windows':
+                plt.rcParams['font.family'] = 'Malgun Gothic'
+                korean_font_prop = fm.FontProperties(family='Malgun Gothic')
+            # macOS
+            elif platform.system() == 'Darwin':
+                plt.rcParams['font.family'] = 'AppleGothic'
+                korean_font_prop = fm.FontProperties(family='AppleGothic')
+            # Linux (Streamlit Cloud)
             else:
-                plt.rcParams['font.family'] = 'DejaVu Sans'
-                korean_font_prop = fm.FontProperties(family='DejaVu Sans')
-                print("기본 폰트 사용: DejaVu Sans")
-    except Exception as e:
-        print(f"폰트 설정 실패: {e}")
-        st.warning("한글 폰트를 설정할 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
+                # 나눔고딕 폰트 시도
+                available_fonts = [f.name for f in fm.fontManager.ttflist]
+                nanum_fonts = [f for f in available_fonts if 'Nanum' in f]
+                
+                if nanum_fonts:
+                    plt.rcParams['font.family'] = nanum_fonts[0]
+                    korean_font_prop = fm.FontProperties(family=nanum_fonts[0])
+                    print(f"나눔 폰트 설정: {nanum_fonts[0]}")
+                else:
+                    plt.rcParams['font.family'] = 'DejaVu Sans'
+                    korean_font_prop = fm.FontProperties(family='DejaVu Sans')
+                    print("기본 폰트 사용: DejaVu Sans")
+        except Exception as e:
+            print(f"폰트 설정 실패: {e}")
+            st.warning("한글 폰트를 설정할 수 없습니다. 시각화에서 한글이 제대로 표시되지 않을 수 있습니다.")
 
-plt.rcParams['axes.unicode_minus'] = False
+    plt.rcParams['axes.unicode_minus'] = False
+    return korean_font_prop
+
+# 폰트 설정 실행 (캐시됨)
+korean_font_prop = setup_korean_font()
 
 # 전역 폰트 속성 설정 함수
 def set_korean_font(ax):
@@ -111,12 +118,28 @@ st.markdown("""
     .main-title {
         text-align: center;
         padding: 2rem 0;
-        color: #1E3A8A;
+        color: #7C3AED !important;
+        font-size: 3.5rem;
+        font-weight: 700;
     }
     .subtitle {
         text-align: center;
         color: #6B7280;
-        margin-bottom: 3rem;
+        margin-bottom: 1rem;
+    }
+    .brand-message {
+        text-align: center;
+        color: #4B5563;
+        font-size: 1.0rem;
+        font-weight: 400;
+        margin: 1.5rem 0 2.5rem 0;
+        padding: 0.8rem 1.5rem;
+        background: #F9FAFB;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
     }
     .container {
         max-width: 650px;
@@ -223,15 +246,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 제목과 부제목
-st.markdown("<h1 class='main-title'>네이버 스마트 스토어 데이터 분석</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>스마트 스토어의 데이터를 분석하여 인사이트를 도출하는 서비스입니다.</p>", unsafe_allow_html=True)
+# 제목
+st.markdown("<h1 class='main-title'>Smart Data Assistant</h1>", unsafe_allow_html=True)
+
+# 홈페이지가 아닌 경우 추가 여백 
+if st.session_state.get('analysis_option', '홈') != "홈":
+    st.markdown("<div style='margin-bottom: 2rem;'></div>", unsafe_allow_html=True)
+
+# 브랜드 메시지 - 홈페이지에서만 표시 (더 안정적인 조건)
+if st.session_state.get('analysis_option', '홈') == "홈":
+    st.markdown("<div class='brand-message'><strong>Smart Data Assistant</strong>는 당신의 스마트스토어 데이터를 자동 분석해 핵심 인사이트를 도출해주는 서비스입니다.</div>", unsafe_allow_html=True)
 
 # 함수: 불용어 관리 UI 생성
 def render_stopwords_ui():
     """불용어 관리 UI를 표시합니다."""
-    # 구분선과 제목
-    st.markdown("---")
+   
     st.subheader("🔧 불용어 관리")
     
     # 현재 불용어 목록 가져오기
@@ -384,42 +413,31 @@ with st.sidebar:
     # 파일 타입 설명
     with st.expander("📁 파일 타입 설명"):
         st.markdown("""
-        • **reviewcontents**: 리뷰 내용 컬럼을 포함한 파일  
+        • <span style="font-size: 1.2em; font-weight: bold;">reviewcontents</span>: 리뷰 내용 컬럼을 포함한 파일  
         • **옵션비율**: 옵션 정보와 판매량/수량 컬럼을 포함한 파일  
         • **스토어전체판매현황**: 기타 판매 관련 파일  
         
         파일 유형은 자동으로 감지됩니다.
-        """)
+        """, unsafe_allow_html=True)
     
     st.header("분석 메뉴")
-    # 세션 상태 초기화 (URL 파라미터 반영)
-    if 'analysis_option' not in st.session_state:
-        # URL 파라미터에서 페이지 정보 읽기
-        try:
-            query_params = st.query_params
-            if 'page' in query_params:
-                st.session_state.analysis_option = query_params['page']
-            else:
-                st.session_state.analysis_option = "홈"
-        except:
-            st.session_state.analysis_option = "홈"
     
+    # 초기값 설정 (한 번만)
+    if "analysis_option" not in st.session_state:
+        st.session_state.analysis_option = "홈"
+    
+    # 라디오 버튼 (key 사용으로 자동 세션 상태 관리)
     analysis_option = st.radio(
         "분석 유형 선택",
         ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"],
-        index=["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.analysis_option) if st.session_state.analysis_option in ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"] else 0
+        key="analysis_option",
+        label_visibility="collapsed"
     )
     
-    # 라디오 버튼 선택이 변경되면 세션 상태 및 URL 업데이트
-    if analysis_option != st.session_state.analysis_option:
-        st.session_state.analysis_option = analysis_option
-        # URL 파라미터 업데이트
-        st.query_params['page'] = analysis_option
-
-# 데이터 저장 변수
-review_df = None
-option_df = None
-sales_df = None
+    # 데이터 저장 변수
+    review_df = None
+    option_df = None
+    sales_df = None
 
 # 업로드된 파일들 처리
 if uploaded_files:
@@ -446,7 +464,7 @@ if uploaded_files:
         st.sidebar.write(f"오류 상세: {type(e).__name__}: {str(e)}")
 
 # 메인 화면
-if st.session_state.analysis_option == "홈":
+if analysis_option == "홈":
     st.markdown('<div class="container">', unsafe_allow_html=True)
     
     # 첫 번째 행
@@ -457,7 +475,6 @@ if st.session_state.analysis_option == "홈":
         if st.button("**📊 리뷰 워드클라우드 분석**\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
                      key="card1", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 워드클라우드"
-            st.query_params['page'] = "리뷰 분석 - 워드클라우드"
             st.rerun()
     
     with col2:
@@ -465,7 +482,6 @@ if st.session_state.analysis_option == "홈":
         if st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
                      key="card2", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 감정분석"
-            st.query_params['page'] = "리뷰 분석 - 감정분석"
             st.rerun()
     
     # 두 번째 행
@@ -476,7 +492,6 @@ if st.session_state.analysis_option == "홈":
         if st.button("**🎯 옵션 분석**\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
                      key="card3", use_container_width=True):
             st.session_state.analysis_option = "옵션 분석"
-            st.query_params['page'] = "옵션 분석"
             st.rerun()
     
     with col4:
@@ -484,7 +499,6 @@ if st.session_state.analysis_option == "홈":
         if st.button("**📈 스토어 전체 판매 현황**\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
             st.session_state.analysis_option = "스토어 전체 판매현황"
-            st.query_params['page'] = "스토어 전체 판매현황"
             st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
@@ -497,12 +511,12 @@ if st.session_state.analysis_option == "홈":
             💡 <strong>'데이터 분석 사용안내'를 먼저 확인해 주세요.</strong><br><br>
             👆 위의 카드를 클릭하여 원하는 분석을 시작하거나<br>
             👈 왼쪽 사이드바에서 파일을 업로드하고 분석 메뉴를 선택하세요.<br>
-            파일 없이도 샘플 데이터로 각 분석 기능을 체험할 수 있습니다.
+            📊 파일 없이도 샘플 데이터로 각 분석 기능을 체험할 수 있습니다.
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-elif st.session_state.analysis_option == "데이터 분석 사용안내":
+elif analysis_option == "데이터 분석 사용안내":
     st.header("📖 데이터 분석 사용안내")
     
     # 서비스 사용 흐름
@@ -636,26 +650,26 @@ elif st.session_state.analysis_option == "데이터 분석 사용안내":
         - 샘플 데이터로 먼저 테스트
         """)
 
-elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안내"]:
+elif analysis_option not in ["홈", "데이터 분석 사용안내"]:
     # 분석이 선택된 경우 - 업로드된 파일이 있으면 사용하고, 없으면 샘플 데이터 사용
     try:
         # 업로드된 파일이 없는 경우에만 샘플 데이터 로드
         if not uploaded_files:
-            if st.session_state.analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
+            if analysis_option in ["리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석"]:
                 try:
                     review_df = pd.read_excel("data/reviewcontents.xlsx")
                     review_df = check_review_columns(review_df)
                 except FileNotFoundError:
                     st.warning("⚠️ 샘플 리뷰 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 리뷰 데이터 파일을 업로드해주세요.")
                     st.stop()
-            elif st.session_state.analysis_option == "스토어 전체 판매현황":
+            elif analysis_option == "스토어 전체 판매현황":
                 try:
                     sales_df = pd.read_excel("data/스토어전체판매현황.xlsx")
                 except FileNotFoundError:
                     st.warning("⚠️ 샘플 판매현황 데이터 파일을 찾을 수 없습니다. 좌측 사이드바에서 판매현황 데이터 파일을 업로드해주세요.")
                     st.stop()
             
-            if st.session_state.analysis_option == "옵션 분석":
+            if analysis_option == "옵션 분석":
                 try:
                     option_df = pd.read_excel("data/옵션비율.xlsx")
                     option_df = check_option_columns(option_df)
@@ -664,7 +678,7 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                     st.stop()
         
         # 분석 실행
-        if st.session_state.analysis_option == "리뷰 분석 - 워드클라우드":
+        if analysis_option == "리뷰 분석 - 워드클라우드":
             st.header("📊 리뷰 워드클라우드 분석")
             
             # 데이터 확인
@@ -700,8 +714,7 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
             # 불용어 관리 UI 표시
             render_stopwords_ui()
             
-            # 섹션 구분을 위한 간격과 구분선
-            st.markdown("---")
+          
             st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("📊 워드클라우드 분석 결과")
             st.markdown("<br>", unsafe_allow_html=True)
@@ -772,7 +785,7 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                 else:
                     st.warning("분석할 리뷰 데이터가 충분하지 않습니다.")
         
-        elif st.session_state.analysis_option == "리뷰 분석 - 감정분석":
+        elif analysis_option == "리뷰 분석 - 감정분석":
             st.header("😊 리뷰 감정분석")
             
             # 데이터 확인
@@ -793,9 +806,11 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                 고객 리뷰의 **감정을 자동으로 분류**하여 긍정, 중립, 부정으로 나누는 분석입니다.
                 
                 ### 🏷️ 세부 카테고리 분석
-                - **긍정**: 맛, 식감, 배송, 가격, 서비스, 품질, 외관, 양 (8개 카테고리)
-                - **중립**: 일반적, 애매한 맛, 보통 품질 등 (7개 카테고리)
-                - **부정**: 맛 문제, 품질 문제, 배송 문제 등 (8개 카테고리)
+                - **긍정**: 상품의 장점을 나타내는 여러 카테고리로 자동 분류 (품질, 가격, 배송, 서비스 등)
+                - **중립**: 특별한 감정 없이 중성적인 표현으로 분류 (보통, 무난, 평범 등)
+                - **부정**: 상품의 문제점이나 불만사항으로 분류 (품질 문제, 배송 지연, 가격 불만 등)
+                
+                *※ 카테고리는 업로드하신 리뷰 데이터에 따라 동적으로 생성됩니다*
                 
                 ### 📈 제공하는 분석
                 1. **감정 분포**: 전체 리뷰의 감정 비율을 막대그래프와 파이차트로 표시
@@ -857,8 +872,18 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                 
                 # 섹션 구분
                 st.markdown("---")
+
+                # 수치 해석 안내 추가
+                st.info("""
+                📊 **수치 해석 안내**  
+                • **상단 차트**: 전체 리뷰를 감정별로 분류 (중립 1,036개, 긍정 229개, 부정 13개)  
+                • **카테고리별 분석**: 키워드가 포함된 리뷰만 집계하며, 한 리뷰가 여러 카테고리에 중복 포함될 수 있습니다  
+                • **예시**: "맛있고 포장도 좋아요" → 맛 카테고리 + 배송 카테고리에 각각 1개씩 카운팅  
+                • 따라서 카테고리별 합계가 상단 차트 수치와 다를 수 있습니다
+                """)
+
                 st.markdown("<br>", unsafe_allow_html=True)
-                
+
                 # 감정별 리뷰 분석
                 st.subheader("감정별 리뷰 카테고리 분석")
                 
@@ -996,7 +1021,7 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                         else:
                             st.info("부정 리뷰에서 분석 가능한 카테고리를 찾을 수 없습니다.")
         
-        elif st.session_state.analysis_option == "옵션 분석":
+        elif analysis_option == "옵션 분석":
             st.header("🎯 옵션 분석")
             
             # 데이터 확인
@@ -1075,7 +1100,7 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                 plt.tight_layout()
                 st.pyplot(fig)
         
-        elif st.session_state.analysis_option == "스토어 전체 판매현황":
+        elif analysis_option == "스토어 전체 판매현황":
             if sales_df is not None:
                 st.header("🏪 스토어 전체 판매현황 분석")
                 
@@ -1090,10 +1115,10 @@ elif st.session_state.analysis_option not in ["홈", "데이터 분석 사용안
                     #### 1. 🏆 매출 랭킹
                     - 기간별 매출 상위 10개 상품 순위
                     
-                    #### 2. ⚡ 가격대비 매출지수 분석
-                    **가격대비 매출지수 = 해당 기간 매출 ÷ 기본판매가격**
+                    #### 2. ⚡ 가격대비 매출효율성 분석
+                    **매출효율성 = 해당 기간 매출 ÷ 기본판매가격**
                     - 상품 가격 대비 얼마나 효율적으로 매출을 올렸는지 측정
-                    - 높은 지수 = 가격 대비 매출 효율성이 좋음
+                    - 높은 효율성 = 가격 대비 매출 성과가 좋음 (예: 2.5 = 가격의 2.5배 매출)
                     
                     #### 3. 💰 가격대별 분석
                     - **동적 가격대 설정**: 업로드된 데이터의 가격 분포를 분석하여 사분위수 기반으로 4개 구간 자동 설정
