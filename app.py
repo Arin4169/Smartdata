@@ -423,10 +423,19 @@ with st.sidebar:
         st.session_state.analysis_option = "홈"
     
     # 라디오 버튼
+    options = ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"]
+    current_option = st.session_state.get("analysis_option", "홈")
+    
+    # 안전한 index 계산
+    try:
+        current_index = options.index(current_option)
+    except ValueError:
+        current_index = 0  # 찾을 수 없으면 홈으로
+    
     analysis_option = st.radio(
         "분석 유형 선택",
-        ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"],
-        index=["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.get("analysis_option", "홈")),
+        options,
+        index=current_index,
         label_visibility="collapsed"
     )
     
@@ -484,7 +493,7 @@ if analysis_option == "홈":
     with col2:
         # 리뷰 감정 분석 카드
         if st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
-                     key="card2", use_container_width=True):
+                     key="sentiment_analysis_card", use_container_width=True):
             st.session_state.analysis_option = "리뷰 분석 - 감정분석"
             st.rerun()
     
@@ -1170,6 +1179,16 @@ elif analysis_option not in ["홈", "데이터 분석 사용안내"]:
                         with col4:
                             st.metric("최대 매출", f"{summary_stats['최대매출']:,}원")
                     
+                    # 탭 폰트 크기 강제 적용 (감정분석과 동일한 크기)
+                    st.markdown("""
+                    <style>
+                    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+                        font-size: 24px !important;
+                        font-weight: 600 !important;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
                     # 분석 탭 생성
                     tab1, tab2, tab3, tab4 = st.tabs(["매출 랭킹", "매출 효율성", "가격대별 분석", "리뷰-매출 인사이트"])
                     
@@ -1224,7 +1243,98 @@ elif analysis_option not in ["홈", "데이터 분석 사용안내"]:
                     
                     with tab4:
                         st.subheader(f"💡 {selected_period} 리뷰-매출 인사이트")
-                        st.info("리뷰-매출 인사이트 분석을 위해서는 리뷰 점수 데이터가 필요합니다.")
+                        
+                        # 리뷰 데이터 컬럼 확인
+                        has_review_score = '리뷰점수' in sales_df.columns
+                        has_review_count = '리뷰수' in sales_df.columns
+                        has_price = '기본판매가격' in sales_df.columns
+                        
+                        if not has_review_score and not has_review_count:
+                            st.info("💡 리뷰-매출 인사이트 분석을 위해서는 리뷰 점수 또는 리뷰수 데이터가 필요합니다.")
+                            st.info("📋 필요한 컬럼: '리뷰점수', '리뷰수', '기본판매가격' (선택사항)")
+                        else:
+                            # 리뷰 효율성 분석
+                            st.markdown("#### 📈 리뷰 효율성 분석")
+                            if has_review_count:
+                                st.info("💡 리뷰 1건당 매출이 높은 상품 분석")
+                                
+                                with st.spinner("리뷰 효율성 분석 중..."):
+                                    efficiency_result = analyze_review_efficiency(sales_df, selected_period)
+                                    
+                                    if not efficiency_result.empty:
+                                        st.dataframe(efficiency_result, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("분석 가능한 데이터가 부족합니다.")
+                            else:
+                                st.info("리뷰 효율성 분석을 위해서는 '리뷰수' 컬럼이 필요합니다.")
+                            
+                            st.divider()
+                            
+                            # 숨겨진 보석 상품
+                            st.markdown("#### 💎 숨겨진 보석 상품")
+                            if has_review_score:
+                                st.info("💡 매출은 낮지만 리뷰 점수가 높은 상품 (리뷰 점수 4.5+ & 매출 하위 50%)")
+                                
+                                with st.spinner("숨겨진 보석 분석 중..."):
+                                    gems_result = analyze_hidden_gems(sales_df, selected_period)
+                                    
+                                    if not gems_result.empty:
+                                        st.dataframe(gems_result, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("조건에 맞는 숨겨진 보석 상품이 없습니다.")
+                            else:
+                                st.info("숨겨진 보석 분석을 위해서는 '리뷰점수' 컬럼이 필요합니다.")
+                            
+                            st.divider()
+                            
+                            # 잠재력 미달 상품
+                            st.markdown("#### ⚠️ 잠재력 미달 상품")
+                            if has_review_score:
+                                st.info("💡 리뷰는 좋은데 매출이 예상보다 낮은 상품 (리뷰 점수 4.0+ & 매출 상위 75% 미달)")
+                                
+                                with st.spinner("잠재력 미달 분석 중..."):
+                                    underperform_result = analyze_underperforming_products(sales_df, selected_period)
+                                    
+                                    if not underperform_result.empty:
+                                        st.dataframe(underperform_result, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("조건에 맞는 잠재력 미달 상품이 없습니다.")
+                            else:
+                                st.info("잠재력 미달 분석을 위해서는 '리뷰점수' 컬럼이 필요합니다.")
+                            
+                            st.divider()
+                            
+                            # 리뷰 확보 필요 상품
+                            st.markdown("#### 📝 리뷰 확보 필요 상품")
+                            if has_review_count:
+                                st.info("💡 매출은 높은데 리뷰가 적은 상품 (매출 상위 50% & 리뷰수 하위 50%)")
+                                
+                                with st.spinner("리뷰 확보 필요 분석 중..."):
+                                    review_needed_result = analyze_review_needed_products(sales_df, selected_period)
+                                    
+                                    if not review_needed_result.empty:
+                                        st.dataframe(review_needed_result, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("조건에 맞는 리뷰 확보 필요 상품이 없습니다.")
+                            else:
+                                st.info("리뷰 확보 필요 분석을 위해서는 '리뷰수' 컬럼이 필요합니다.")
+                            
+                            st.divider()
+                            
+                            # 가성비 인증 상품
+                            st.markdown("#### 💰 가성비 인증 상품")
+                            if has_review_score and has_price:
+                                st.info("💡 저렴한 가격 + 높은 리뷰 점수 상품 (가격 하위 50% & 리뷰 점수 4.0+)")
+                                
+                                with st.spinner("가성비 인증 분석 중..."):
+                                    value_result = analyze_value_products(sales_df, selected_period)
+                                    
+                                    if not value_result.empty:
+                                        st.dataframe(value_result, use_container_width=True, hide_index=True)
+                                    else:
+                                        st.info("조건에 맞는 가성비 인증 상품이 없습니다.")
+                            else:
+                                st.info("가성비 인증 분석을 위해서는 '리뷰점수'와 '기본판매가격' 컬럼이 필요합니다.")
                         
             else:
                 st.error("⚠️ 판매현황 데이터가 없습니다. 스토어 전체 판매현황 파일을 업로드해주세요.")
