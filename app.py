@@ -2,7 +2,7 @@ import streamlit as st
 
 # 페이지 기본 설정 (반드시 첫 번째 Streamlit 명령어여야 함)
 st.set_page_config(
-    page_title="스마트 스토어 데이터 분석",
+    page_title="스마트스토어 데이터 분석",
     page_icon="📊",
     layout="wide"
 )
@@ -249,13 +249,13 @@ st.markdown("""
 # 제목
 st.markdown("<h1 class='main-title'>Smart Data Assistant</h1>", unsafe_allow_html=True)
 
-# 홈페이지가 아닌 경우 또는 카드 클릭 후 추가 여백 
+# 홈페이지가 아닌 경우 추가 여백 
 current_page = st.session_state.get('analysis_option', '홈')
-if current_page != "홈" or "card_clicked" in st.session_state:
+if current_page != "홈":
     st.markdown("<div style='margin-bottom: 2rem;'></div>", unsafe_allow_html=True)
 
-# 브랜드 메시지 - 홈페이지에서만 표시 (카드 클릭 감지 포함)
-if current_page == "홈" and "card_clicked" not in st.session_state:
+# 브랜드 메시지 - 홈페이지에서만 표시
+if current_page == "홈":
     st.markdown("<div class='brand-message'><strong>Smart Data Assistant</strong>는 당신의 스마트스토어 데이터를 자동 분석해 핵심 인사이트를 도출해주는 서비스입니다.</div>", unsafe_allow_html=True)
 
 # 함수: 불용어 관리 UI 생성
@@ -409,7 +409,7 @@ def check_option_columns(df):
 # 사이드바 - 파일 업로드 및 메뉴
 with st.sidebar:
     st.header("데이터 업로드")
-    uploaded_files = st.file_uploader("스마트 스토어 데이터 파일", type=["xlsx", "csv"], accept_multiple_files=True, help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요. (최대 3개 파일)")
+    uploaded_files = st.file_uploader("스마트스토어 데이터 파일", type=["xlsx", "csv"], accept_multiple_files=True, help="리뷰 분석, 옵션 비율, 판매 현황 등의 파일을 업로드하세요. (최대 3개 파일)")
     
     # 파일 타입 설명
     with st.expander("📁 파일 타입 설명"):
@@ -423,20 +423,17 @@ with st.sidebar:
     
     st.header("분석 메뉴")
     
-    # 카드 버튼 클릭 감지 및 라디오 버튼 값 업데이트
-    if "card_clicked" in st.session_state:
-        st.session_state.analysis_option = st.session_state.card_clicked
-        del st.session_state.card_clicked
+
     
     # 초기값 설정 (한 번만)
     if "analysis_option" not in st.session_state:
         st.session_state.analysis_option = "홈"
     
-    # 라디오 버튼 (key 사용으로 자동 세션 상태 관리)
+    # 라디오 버튼
     analysis_option = st.radio(
         "분석 유형 선택",
         ["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"],
-        key="analysis_option",
+        index=["홈", "데이터 분석 사용안내", "리뷰 분석 - 워드클라우드", "리뷰 분석 - 감정분석", "옵션 분석", "스토어 전체 판매현황"].index(st.session_state.get("analysis_option", "홈")),
         label_visibility="collapsed"
     )
     
@@ -480,14 +477,14 @@ if analysis_option == "홈":
         # 리뷰 워드클라우드 분석 카드
         if st.button("**📊 리뷰 워드클라우드 분석**\n\n• 고객 리뷰에서 자주 등장하는 키워드를 시각화\n• 불용어 관리로 분석 정확도 향상\n• 직관적인 워드클라우드와 Top 20 키워드 차트", 
                      key="card1", use_container_width=True):
-            st.session_state.card_clicked = "리뷰 분석 - 워드클라우드"
+            st.session_state.analysis_option = "리뷰 분석 - 워드클라우드"
             st.rerun()
     
     with col2:
         # 리뷰 감정 분석 카드
         if st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
                      key="card2", use_container_width=True):
-            st.session_state.card_clicked = "리뷰 분석 - 감정분석"
+            st.session_state.analysis_option = "리뷰 분석 - 감정분석"
             st.rerun()
     
     # 두 번째 행
@@ -497,14 +494,14 @@ if analysis_option == "홈":
         # 옵션 분석 카드
         if st.button("**🎯 옵션 분석**\n\n• 상품 옵션별 판매 수량 분석\n• 인기 옵션 Top 10 시각화\n• 재고 관리 및 마케팅 전략 수립 지원", 
                      key="card3", use_container_width=True):
-            st.session_state.card_clicked = "옵션 분석"
+            st.session_state.analysis_option = "옵션 분석"
             st.rerun()
     
     with col4:
         # 스토어 전체 판매 현황 카드
         if st.button("**📈 스토어 전체 판매 현황**\n\n• 기간별 매출 랭킹 및 가격대비 매출지수 분석\n• 매출 및 주문 데이터 시각화\n• 동적 가격대별 분석 및 리뷰-매출 인사이트", 
                      key="card4", use_container_width=True):
-            st.session_state.card_clicked = "스토어 전체 판매현황"
+            st.session_state.analysis_option = "스토어 전체 판매현황"
             st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
