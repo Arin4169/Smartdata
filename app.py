@@ -492,8 +492,32 @@ if analysis_option == "홈":
     
     with col2:
         # 리뷰 감정 분석 카드
-        if st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
-                     key="sentiment_analysis_card", use_container_width=True):
+        sentiment_clicked = st.button("**😊 리뷰 감정 분석**\n\n• 고객 리뷰의 감정별 세부 카테고리 분석\n• 감정 분포 시각화\n• 고객 만족도 트렌드 파악", 
+                                     key="sentiment_btn_v4", use_container_width=True)
+        
+        if sentiment_clicked:
+            # 감정분석 전 완전한 상태 정리
+            keys_to_clear = []
+            for key in st.session_state.keys():
+                # 감정분석 관련 키워드가 포함된 모든 키 제거
+                if any(word in key.lower() for word in ['sentiment', 'emotion', 'analysis', 'category', 'positive', 'negative', 'neutral']):
+                    keys_to_clear.append(key)
+            
+            # 키 삭제
+            for key in keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+            
+            # 캐시는 유지하고 session state만 정리 (대용량 데이터 재분석 성능 보장)
+            # st.cache_data.clear()  # 의도적으로 주석 처리 - 빠른 재분석을 위해 캐시 유지
+            
+            # matplotlib 관련 정리
+            try:
+                import matplotlib.pyplot as plt
+                plt.close('all')  # 모든 matplotlib figure 닫기
+            except:
+                pass
+            
             st.session_state.analysis_option = "리뷰 분석 - 감정분석"
             st.rerun()
     

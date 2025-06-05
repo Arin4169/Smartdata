@@ -132,6 +132,7 @@ def extract_nouns(text):
     
     return nouns
 
+@st.cache_data(show_spinner=False)
 def generate_wordcloud_data(df, column_name='review_content'):
     """워드클라우드 생성 데이터 준비 함수"""
     
@@ -172,6 +173,7 @@ def create_wordcloud(word_count, width=1200, height=800):
     
     return wc
 
+@st.cache_data(show_spinner=False)
 def simple_sentiment_analysis(df, column_name='review_content'):
     """간단한 감정 분석 함수"""
     
@@ -224,6 +226,7 @@ def analyze_options(df, option_column='option_info', count_column='count'):
     
     return top_options
 
+@st.cache_data(show_spinner=False)
 def analyze_positive_review_categories(df, review_column):
     """긍정 리뷰를 카테고리별로 분석합니다."""
     
@@ -241,6 +244,7 @@ def analyze_positive_review_categories(df, review_column):
     
     return _analyze_review_categories_by_sentiment(df, review_column, '긍정', category_keywords)
 
+@st.cache_data(show_spinner=False)
 def analyze_neutral_review_categories(df, review_column):
     """중립 리뷰를 카테고리별로 분석합니다."""
     
@@ -257,6 +261,7 @@ def analyze_neutral_review_categories(df, review_column):
     
     return _analyze_review_categories_by_sentiment(df, review_column, '중립', category_keywords)
 
+@st.cache_data(show_spinner=False)
 def analyze_negative_review_categories(df, review_column):
     """부정 리뷰를 카테고리별로 분석합니다."""
     
