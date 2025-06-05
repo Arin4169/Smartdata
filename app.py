@@ -249,14 +249,7 @@ st.markdown("""
 # 제목
 st.markdown("<h1 class='main-title'>Smart Data Assistant</h1>", unsafe_allow_html=True)
 
-# 홈페이지가 아닌 경우 추가 여백 
-current_page = st.session_state.get('analysis_option', '홈')
-if current_page != "홈":
-    st.markdown("<div style='margin-bottom: 2rem;'></div>", unsafe_allow_html=True)
-
-# 브랜드 메시지 - 홈페이지에서만 표시
-if current_page == "홈":
-    st.markdown("<div class='brand-message'><strong>Smart Data Assistant</strong>는 당신의 스마트스토어 데이터를 자동 분석해 핵심 인사이트를 도출해주는 서비스입니다.</div>", unsafe_allow_html=True)
+# 라디오 버튼 값을 먼저 가져와야 브랜드 메시지 표시 로직이 정확함
 
 # 함수: 불용어 관리 UI 생성
 def render_stopwords_ui():
@@ -465,6 +458,14 @@ if uploaded_files:
     except Exception as e:
         st.sidebar.error(f"파일 처리 중 오류가 발생했습니다: {e}")
         st.sidebar.write(f"오류 상세: {type(e).__name__}: {str(e)}")
+
+# 브랜드 메시지 표시 로직 - 라디오 버튼 값 기준
+if analysis_option != "홈":
+    # 분석 화면: 추가 여백만 표시
+    st.markdown("<div style='margin-bottom: 2rem;'></div>", unsafe_allow_html=True)
+else:
+    # 홈 화면: 브랜드 메시지 표시
+    st.markdown("<div class='brand-message'><strong>Smart Data Assistant</strong>는 당신의 스마트스토어 데이터를 자동 분석해 핵심 인사이트를 도출해주는 서비스입니다.</div>", unsafe_allow_html=True)
 
 # 메인 화면
 if analysis_option == "홈":
