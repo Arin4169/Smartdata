@@ -543,7 +543,7 @@ if analysis_option == "홈":
     # 시작하기 섹션
     st.markdown("""
     <div class="start-section">
-        <h2 style="color: #1E3A8A;">시작하기</h2>
+        <h2 style="color: #1E3A8A;">시작하기 전에...</h2>
         <p style="color: #6B7280;">
             💡 <strong>'데이터 분석 사용안내'를 먼저 확인해 주세요.</strong><br><br>
             👆 위의 카드를 클릭하여 원하는 분석을 시작하거나<br>
