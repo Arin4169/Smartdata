@@ -4,7 +4,8 @@ import streamlit as st
 st.set_page_config(
     page_title="스마트스토어 데이터 분석",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"  # 사이드바를 항상 펼쳐진 상태로 시작
 )
 
 import pandas as pd
